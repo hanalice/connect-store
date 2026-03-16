@@ -1,0 +1,26 @@
+@use './variables';
+@use './themes';
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  background: var(--color-bg-page);
+  color: var(--color-text-primary);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}

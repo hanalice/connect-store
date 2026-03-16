@@ -1,0 +1,21 @@
+.errorBox {
+  margin: 16px 0;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #c84e4e;
+  background: #381f21;
+  color: #ffc4c4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.errorBox button {
+  border: 1px solid #ffc4c4;
+  background: transparent;
+  color: #ffc4c4;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+}

@@ -1,0 +1,115 @@
+.wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.resetWrapper {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.title {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.reset {
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.reset:hover {
+  border-color: color-mix(in srgb, var(--color-accent), var(--color-border) 50%);
+  color: var(--color-accent);
+}
+
+.reset:active {
+  background: color-mix(in srgb, var(--color-accent), var(--color-bg-card) 88%);
+  border-color: var(--color-accent);
+}
+
+.reset:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-accent), transparent 40%);
+  outline-offset: 2px;
+}
+
+.options {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  white-space: nowrap;
+}
+
+.option input {
+  accent-color: var(--color-accent);
+}
+
+.option input:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-accent), transparent 40%);
+  outline-offset: 2px;
+}
+
+.option input:checked + span {
+  color: var(--color-accent);
+}
+
+@media (max-width: 768px) {
+  .wrapper {
+    align-items: center;
+    flex-direction: row;
+  }
+
+  .options {
+    flex: 1;
+    flex-wrap: nowrap;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .resetWrapper {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .wrapper {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .options {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+
+  .resetWrapper {
+    margin-left: 0;
+  }
+}

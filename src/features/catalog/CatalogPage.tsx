@@ -1,0 +1,180 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+
+import { EmptyState } from './components/EmptyState'
+import { ErrorState } from './components/ErrorState'
+import { FilterPanel } from './components/FilterPanel'
+import { ProductCard } from './components/ProductCard'
+import { ProductGrid } from './components/ProductGrid'
+import { ProductSkeletonCard } from './components/ProductSkeletonCard'
+import { SearchBar } from './components/SearchBar'
+import { SortSelect } from './components/SortSelect'
+import { CustomSelect } from './components/CustomSelect'
+import { filterProducts, getVisibleProducts, sortProducts } from './selectors/catalogSelectors'
+import { useCatalogStore } from './store/useCatalogStore'
+import { PricingOption, type SortMode } from './types/product'
+import { readCatalogUrlState, writeCatalogUrlState } from './utils/catalogQueryParams'
+import styles from './CatalogPage.module.scss'
+
+export function CatalogPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const urlState = useMemo(() => readCatalogUrlState(searchParams), [searchParams])
+
+  const {
+    products,
+    loading,
+    error,
+    visibleCount,
+    chunkSize,
+    fetchProducts,
+    increaseVisibleCount,
+    resetVisibleCount,
+  } = useCatalogStore()
+
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+  const [isAppending, setIsAppending] = useState(false)
+  const sentinelRef = useRef<HTMLDivElement | null>(null)
+  const pricingKey = useMemo(() => urlState.pricingOptions.join(','), [urlState.pricingOptions])
+
+  useEffect(() => {
+    fetchProducts()
+  }, [fetchProducts])
+
+  useEffect(() => {
+    resetVisibleCount()
+  }, [urlState.keyword, pricingKey, urlState.sortMode, resetVisibleCount])
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+  }, [theme])
+
+  const processedProducts = useMemo(() => {
+    const filtered = filterProducts(products, {
+      keyword: urlState.keyword,
+      pricingOptions: urlState.pricingOptions,
+      sortMode: urlState.sortMode,
+    })
+
+    return sortProducts(filtered, urlState.sortMode)
+  }, [products, urlState.keyword, urlState.pricingOptions, urlState.sortMode])
+
+  const visibleProducts = useMemo(
+    () => getVisibleProducts(processedProducts, visibleCount),
+    [processedProducts, visibleCount],
+  )
+
+  const hasMore = visibleProducts.length < processedProducts.length
+
+  useEffect(() => {
+    const target = sentinelRef.current
+    if (!target || !hasMore) {
+      return
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries[0]?.isIntersecting || isAppending) {
+        return
+      }
+
+      setIsAppending(true)
+      window.setTimeout(() => {
+        increaseVisibleCount()
+        setIsAppending(false)
+      }, 200)
+    })
+
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [hasMore, isAppending, increaseVisibleCount])
+
+  function patchUrlState(nextState: {
+    keyword?: string
+    pricingOptions?: PricingOption[]
+    sortMode?: SortMode
+  }) {
+    const state = {
+      keyword: nextState.keyword ?? urlState.keyword,
+      pricingOptions: nextState.pricingOptions ?? urlState.pricingOptions,
+      sortMode: nextState.sortMode ?? urlState.sortMode,
+    }
+
+    setSearchParams(writeCatalogUrlState(state), { replace: true })
+  }
+
+  function togglePricing(option: PricingOption) {
+    const exists = urlState.pricingOptions.includes(option)
+    const next = exists
+      ? urlState.pricingOptions.filter((item) => item !== option)
+      : [...urlState.pricingOptions, option]
+    patchUrlState({ pricingOptions: next })
+  }
+
+  function resetFilters() {
+    patchUrlState({ pricingOptions: [] })
+  }
+
+  return (
+    <div className={styles.page}>
+      <header className={styles.header}>
+        <div className={[styles.headerInner, styles.container].join(' ')}>
+          <h1 className={styles.brandText}>CONNECT</h1>
+          <div className={styles.themeControl}>
+            <CustomSelect<'dark' | 'light'>
+              value={theme}
+              onChange={setTheme}
+              label="Theme"
+              id="theme-switch"
+              options={[
+                { value: 'dark', label: 'Dark' },
+                { value: 'light', label: 'Light' },
+              ]}
+            />
+          </div>
+        </div>
+      </header>
+
+      <main className={styles.mainContent}>
+        <div className={styles.container}>
+          <SearchBar value={urlState.keyword} onSearch={(keyword) => patchUrlState({ keyword })} />
+
+          <section className={styles.controls}>
+            <FilterPanel selected={urlState.pricingOptions} onToggle={togglePricing} onReset={resetFilters} />
+            <SortSelect value={urlState.sortMode} onChange={(sortMode) => patchUrlState({ sortMode })} />
+          </section>
+
+          {error ? <ErrorState message={error} onRetry={fetchProducts} /> : null}
+
+          {loading ? (
+            <ProductGrid>
+              {Array.from({ length: 8 }).map((_, index) => (
+                <ProductSkeletonCard key={`initial-skeleton-${index}`} />
+              ))}
+            </ProductGrid>
+          ) : null}
+
+          {!loading && !error && visibleProducts.length === 0 ? <EmptyState /> : null}
+
+          {!loading && !error && visibleProducts.length > 0 ? (
+            <>
+              <ProductGrid>
+                {visibleProducts.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </ProductGrid>
+
+              {isAppending ? (
+                <ProductGrid>
+                  {Array.from({ length: Math.min(chunkSize, 4) }).map((_, index) => (
+                    <ProductSkeletonCard key={`append-skeleton-${index}`} />
+                  ))}
+                </ProductGrid>
+              ) : null}
+
+              <div ref={sentinelRef} className={styles.sentinel} aria-hidden="true" />
+            </>
+          ) : null}
+        </div>
+      </main>
+    </div>
+  )
+}

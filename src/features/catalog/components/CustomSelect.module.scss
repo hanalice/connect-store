@@ -1,0 +1,122 @@
+.customSelect {
+  position: relative;
+  display: inline-flex;
+  gap: 0;
+}
+
+.row {
+  flex-direction: row;
+  align-items: center;
+}
+
+.column {
+  flex-direction: column;
+  align-items: flex-start;
+
+  .label {
+    margin-bottom: 4px;
+  }
+}
+
+.selectContainer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-width: 120px;
+}
+
+.label {
+  font-size: 0.95rem;
+  color: var(--color-text-primary);
+  margin-right: 12px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 6px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.buttonText {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.button:hover,
+.button:focus-visible {
+  border-color: var(--color-accent);
+  outline: 2px solid color-mix(in srgb, var(--color-accent), transparent 40%);
+  outline-offset: 2px;
+}
+
+.arrow {
+  margin-left: 8px;
+  font-size: 0.8em;
+  color: var(--color-text-secondary);
+}
+
+.list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 10;
+  min-width: 100%;
+  width: 100%;
+  margin: 4px 0 0 0;
+  padding: 4px 0;
+  background: var(--color-bg-panel);
+  border: 1px solid var(--color-accent);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  list-style: none;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.option {
+  padding: 8px 16px;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s;
+  border: none;
+  background: none;
+  overflow: hidden;
+}
+
+.optionText {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.option:hover,
+.option.focused {
+  background: color-mix(in srgb, var(--color-accent), var(--color-bg-panel) 80%);
+  color: var(--color-accent);
+}
+
+.option.selected {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
