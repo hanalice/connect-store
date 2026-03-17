@@ -72,20 +72,17 @@ export function CatalogPage() {
             return;
         }
 
-        const observer = new IntersectionObserver(
-            (entries) => {
-                if (!entries[0]?.isIntersecting || isAppending) {
-                    return;
-                }
+        const observer = new IntersectionObserver((entries) => {
+            if (!entries[0]?.isIntersecting || isAppending) {
+                return;
+            }
 
-                setIsAppending(true);
-                window.setTimeout(() => {
-                    increaseVisibleCount();
-                    setIsAppending(false);
-                }, 200);
-            },
-            { rootMargin: '0px 0px 400px 0px' },
-        );
+            setIsAppending(true);
+            window.setTimeout(() => {
+                increaseVisibleCount();
+                setIsAppending(false);
+            }, 200);
+        });
 
         observer.observe(target);
         return () => observer.disconnect();
