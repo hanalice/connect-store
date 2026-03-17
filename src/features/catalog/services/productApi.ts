@@ -18,10 +18,10 @@ function isValidProduct(item: unknown): item is Product {
     );
 }
 
-export async function getProducts(): Promise<Product[]> {
+export async function getProducts(signal?: AbortSignal): Promise<Product[]> {
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
-            const response = await fetch(PRODUCTS_API_URL);
+            const response = await fetch(PRODUCTS_API_URL, { signal });
 
             if (!response.ok) {
                 // Only retry for 5xx server errors
