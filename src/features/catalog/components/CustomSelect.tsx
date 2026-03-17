@@ -45,7 +45,7 @@ export function CustomSelect<T extends string | number>({
     span.style.fontWeight = 'inherit'
     span.innerText = options.reduce((a, b) => a.length > b.label.length ? a : b.label, '')
     document.body.appendChild(span)
-    setAutoWidth(span.offsetWidth + 36) // 箭头和内边距
+    setAutoWidth(span.offsetWidth + 48) // 箭头(16px) + 内边距(12px * 2) + 缓冲
     document.body.removeChild(span)
   }, [options, width])
 
