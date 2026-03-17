@@ -11,6 +11,8 @@
     --color-bg-header: #0a0c10;
     --color-brand-gradient: linear-gradient(135deg, #58d6ae 0%, #3fb1f5 100%);
     --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.28);
+    --color-skeleton-base: #2a2e35;
+    --color-skeleton-highlight: #393f48;
 }
 
 :root[data-theme='light'] {
@@ -25,4 +27,6 @@
     --color-bg-header: #f8fafc;
     --color-brand-gradient: linear-gradient(135deg, #0d8a68 0%, #0277bd 100%);
     --shadow-card: 0 8px 24px rgba(15, 18, 24, 0.09);
+    --color-skeleton-base: #d8dee8;
+    --color-skeleton-highlight: #eef2f7;
 }

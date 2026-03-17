@@ -7,7 +7,12 @@
 }
 
 .shimmer {
-    background: linear-gradient(90deg, #2a2e35 0%, #393f48 50%, #2a2e35 100%);
+    background: linear-gradient(
+        90deg,
+        var(--color-skeleton-base) 0%,
+        var(--color-skeleton-highlight) 50%,
+        var(--color-skeleton-base) 100%
+    );
     background-size: 220% 100%;
     animation: shimmer 1.3s infinite;
     border-radius: 4px;

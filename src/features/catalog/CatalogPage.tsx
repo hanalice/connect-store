@@ -12,6 +12,7 @@ import { SortSelect } from './components/SortSelect';
 import { ThemeToggle } from './components/ThemeToggle';
 import { filterProducts, getVisibleProducts, sortProducts } from './selectors/catalogSelectors';
 import { useCatalogStore } from './store/useCatalogStore';
+import { usePreferenceStore } from './store/usePreferenceStore';
 import { PricingOption, type SortMode } from './types/product';
 import { readCatalogUrlState, writeCatalogUrlState } from './utils/catalogQueryParams';
 import styles from './CatalogPage.module.scss';
@@ -31,7 +32,7 @@ export function CatalogPage() {
         resetVisibleCount,
     } = useCatalogStore();
 
-    const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+    const { theme, toggleTheme } = usePreferenceStore();
     const [isAppending, setIsAppending] = useState(false);
     const sentinelRef = useRef<HTMLDivElement | null>(null);
     const pricingKey = useMemo(() => urlState.pricingOptions.join(','), [urlState.pricingOptions]);
@@ -119,10 +120,7 @@ export function CatalogPage() {
                 <div className={[styles.headerInner, styles.container].join(' ')}>
                     <h1 className={styles.brandText}>CONNECT</h1>
                     <div className={styles.themeControl}>
-                        <ThemeToggle
-                            theme={theme}
-                            onToggle={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-                        />
+                        <ThemeToggle theme={theme} onToggle={toggleTheme} />
                     </div>
                 </div>
             </header>
