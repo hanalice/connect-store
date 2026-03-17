@@ -237,7 +237,32 @@ describe('CatalogPage Integration', () => {
         expect(document.documentElement.getAttribute('data-theme')).toBe('light');
     });
 
-    it('INT-15: Search clears pending scroll skeletons immediately (Concurrency)', async () => {
+    it('INT-13: ProductSkeletonCard uses theme-aware colors', async () => {
+        render(
+            <MemoryRouter>
+                <CatalogPage />
+            </MemoryRouter>,
+        );
+
+        // Settle initial load
+        await screen.findByText('Yellow Coat');
+
+        // Initial (dark)
+        expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+
+        // Force light mode
+        const toggleButton = screen.getByRole('button', { name: /switch to light mode/i });
+        await act(async () => {
+            fireEvent.click(toggleButton);
+        });
+        expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+
+        // The actual color check is best done in E2E, but we can verify the attribute is there
+        // which drives the CSS variables for skeleton colors.
+        expect(document.documentElement).toHaveAttribute('data-theme', 'light');
+    });
+
+    it('INT-14: Search clears pending scroll skeletons immediately (Concurrency)', async () => {
         vi.useFakeTimers();
 
         // 1. Setup with enough items to trigger scroll
@@ -294,32 +319,7 @@ describe('CatalogPage Integration', () => {
         vi.useRealTimers();
     });
 
-    it('INT-14: ProductSkeletonCard uses theme-aware colors', async () => {
-        render(
-            <MemoryRouter>
-                <CatalogPage />
-            </MemoryRouter>,
-        );
-
-        // Settle initial load
-        await screen.findByText('Yellow Coat');
-
-        // Initial (dark)
-        expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
-
-        // Force light mode
-        const toggleButton = screen.getByRole('button', { name: /switch to light mode/i });
-        await act(async () => {
-            fireEvent.click(toggleButton);
-        });
-        expect(document.documentElement.getAttribute('data-theme')).toBe('light');
-
-        // The actual color check is best done in E2E, but we can verify the attribute is there
-        // which drives the CSS variables for skeleton colors.
-        expect(document.documentElement).toHaveAttribute('data-theme', 'light');
-    });
-
-    it('INT-15: Verify body scroll sanity', () => {
+    it('INT-16: Verify body scroll sanity (Continuation)', () => {
         render(
             <MemoryRouter>
                 <CatalogPage />

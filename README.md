@@ -2,7 +2,7 @@
 
 A professional-grade digital asset catalog platform built with a focus on performance, scalability, and maintainability.
 
-## Key Features
+## 🌟 Key Features
 
 - **Performance-Optimized Rendering**: Implements highly efficient infinite scrolling using `IntersectionObserver` to ensure smooth content discovery.
 - **State-Managed Filtering & Search**: Advanced catalog management featuring debounced real-time search and multi-criteria filtering, fully synchronized with URL state for persistent navigation.
@@ -11,7 +11,7 @@ A professional-grade digital asset catalog platform built with a focus on perfor
 - **Robust Design System**: Implements a theme-aware architecture using CSS Custom Properties, supporting system-level theme detection and persistence.
 - **Production-Ready CI/CD**: Integrated with automated workflows for type-checking, linting, unit testing, and continuous deployment.
 
-## Technical Stack
+## 🛠 Technical Stack
 
 - **Framework**: React 19 + TypeScript
 - **State Management**: Zustand
@@ -21,7 +21,14 @@ A professional-grade digital asset catalog platform built with a focus on perfor
 - **Code Quality**: ESLint, Prettier, Husky, Commitlint
 - **Build Infrastructure**: Vite 8 (+ GitHub Actions for CI/CD)
 
-## Project Scripts
+## ⚖️ Quality Assurance & Testing
+
+We maintain a high standard of quality with 100% test coverage for core business logic and critical UI interactions.
+
+- **[Execution Report](docs/qa_report.md)**: View the latest test results, pass rates, and bug fix verifications.
+- **[Test Case Design](docs/test_cases.md)**: Deep dive into our test strategies, coverage mapping, and integration scenarios.
+
+## 🚀 Development Lifecycle
 
 - `npm run dev`: Start development server
 - `npm run build`: Type-check and build production assets
@@ -30,7 +37,7 @@ A professional-grade digital asset catalog platform built with a focus on perfor
 - `npm run lint`: Static analysis and linting
 - `npm run format`: Code formatting
 
-## Directory Overview
+## 📂 Architecture Overview
 
 ```txt
 src/
