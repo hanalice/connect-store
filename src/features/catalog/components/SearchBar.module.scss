@@ -9,30 +9,76 @@
     margin-bottom: 8px;
 }
 
+.inputContainer {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
 .input {
     width: 100%;
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: 12px;
     background: var(--color-bg-card);
     color: var(--color-text-primary);
     height: var(--control-height);
-    padding: 0 12px;
+    padding: 0 48px 0 16px; // Left padding for text, right for icon
     box-sizing: border-box;
-    transition:
-        border-color 0.2s ease,
-        box-shadow 0.2s ease;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 1rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .input:hover {
-    border-color: color-mix(in srgb, var(--color-accent), var(--color-border) 50%);
+    border-color: color-mix(in srgb, var(--color-accent), var(--color-border) 40%);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .input:focus-visible {
     border-color: var(--color-accent);
-    outline: 2px solid color-mix(in srgb, var(--color-accent), transparent 40%);
-    outline-offset: 2px;
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent), transparent 85%);
 }
 
 .input::placeholder {
-    color: color-mix(in srgb, var(--color-text-secondary), var(--color-accent) 12%);
+    color: var(--color-text-secondary);
+    opacity: 0.6;
+}
+
+.searchButton {
+    position: absolute;
+    right: 8px;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: transparent;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+
+    &:hover {
+        background: color-mix(in srgb, var(--color-accent), transparent 90%);
+        color: var(--color-accent);
+        transform: scale(1.1);
+    }
+
+    &:active {
+        transform: scale(0.95);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--color-accent);
+        background: color-mix(in srgb, var(--color-accent), transparent 90%);
+    }
+}
+
+.searchIcon {
+    pointer-events: none;
 }
