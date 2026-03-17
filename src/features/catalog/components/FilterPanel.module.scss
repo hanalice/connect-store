@@ -1,120 +1,120 @@
 .wrapper {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  background: var(--color-bg-panel);
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  padding: 0 24px;
-  height: var(--control-height);
-  box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    background: var(--color-bg-panel);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: 0 24px;
+    height: var(--control-height);
+    box-sizing: border-box;
 }
 
 .label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--color-text-secondary);
-  white-space: nowrap;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
 }
 
 .options {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex: 1;
 }
 
 .resetWrapper {
-  margin-left: auto;
+    margin-left: auto;
 }
 
 .reset {
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-card);
-  color: var(--color-text-primary);
-  border-radius: 8px;
-  padding: 6px 14px;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  line-height: 1.2;
-  cursor: pointer;
-  transition: all 0.2s ease;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-card);
+    color: var(--color-text-primary);
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.2;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
 .reset:hover {
-  border-color: var(--color-accent);
-  color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent), transparent 92%);
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent), transparent 92%);
 }
 
 .reset:active {
-  background: color-mix(in srgb, var(--color-accent), transparent 85%);
-  transform: translateY(1px);
+    background: color-mix(in srgb, var(--color-accent), transparent 85%);
+    transform: translateY(1px);
 }
 
 .option {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--color-text-secondary);
-  font-size: 0.875rem;
-  white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--color-text-secondary);
+    font-size: 0.875rem;
+    white-space: nowrap;
 }
 
 .option input {
-  accent-color: var(--color-accent);
+    accent-color: var(--color-accent);
 }
 
 .option input:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--color-accent), transparent 40%);
-  outline-offset: 2px;
+    outline: 2px solid color-mix(in srgb, var(--color-accent), transparent 40%);
+    outline-offset: 2px;
 }
 
 .option input:checked + span {
-  color: var(--color-accent);
+    color: var(--color-accent);
 }
 
 @media (max-width: 768px) {
-  .wrapper {
-    height: auto;
-    min-height: var(--control-height);
-    padding: 0 24px;
-    gap: 16px;
-  }
+    .wrapper {
+        height: auto;
+        min-height: var(--control-height);
+        padding: 0 24px;
+        gap: 16px;
+    }
 
-  .options {
-    flex-wrap: wrap;
-    padding: 8px 0;
-    gap: 12px 20px;
-  }
+    .options {
+        flex-wrap: wrap;
+        padding: 8px 0;
+        gap: 12px 20px;
+    }
 }
 
 @media (max-width: 550px) {
-  .wrapper {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 16px 20px;
-    gap: 16px;
-  }
+    .wrapper {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 16px 20px;
+        gap: 16px;
+    }
 
-  .options {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-    width: 100%;
-  }
+    .options {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+        width: 100%;
+    }
 
-  .resetWrapper {
-    margin-left: 0;
-    width: 100%;
-    display: flex;
-    justify-content: flex-start;
-    padding-top: 4px;
-  }
+    .resetWrapper {
+        margin-left: 0;
+        width: 100%;
+        display: flex;
+        justify-content: flex-start;
+        padding-top: 4px;
+    }
 
-  .reset {
-    width: 100%;
-    padding: 10px;
-    text-align: center;
-  }
+    .reset {
+        width: 100%;
+        padding: 10px;
+        text-align: center;
+    }
 }

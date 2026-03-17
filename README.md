@@ -27,6 +27,7 @@ React + TypeScript + Vite project based on `docs/架构设计.md`.
 - `npm run test:watch`: run tests in watch mode
 
 ## Scope
+
 - Client-side filtering + sorting selectors, use URL query state helpers (`q`, `pricing`, `sort`)
 - Theme tokens and runtime theme switch (`dark`, `light`)
 - Infinite scrolling skeleton structure with IntersectionObserver

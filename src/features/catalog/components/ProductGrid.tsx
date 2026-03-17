@@ -1,11 +1,11 @@
-import type { ReactNode } from 'react'
+import type { ReactNode } from 'react';
 
-import styles from './ProductGrid.module.scss'
+import styles from './ProductGrid.module.scss';
 
 interface ProductGridProps {
-  children: ReactNode
+    children: ReactNode;
 }
 
 export function ProductGrid({ children }: ProductGridProps) {
-  return <section className={styles.grid}>{children}</section>
+    return <section className={styles.grid}>{children}</section>;
 }
