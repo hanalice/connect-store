@@ -20,6 +20,7 @@ export function FilterPanel({ selected, onToggle, onReset }: FilterPanelProps) {
                             type="checkbox"
                             checked={selected.includes(option)}
                             onChange={() => onToggle(option)}
+                            aria-label={`Show only ${PRICING_LABEL[option]} products`}
                         />
                         <span>{PRICING_LABEL[option]}</span>
                     </label>
@@ -27,7 +28,13 @@ export function FilterPanel({ selected, onToggle, onReset }: FilterPanelProps) {
             </div>
 
             <div className={styles.resetWrapper}>
-                <button className={styles.reset} onClick={onReset} type="button">
+                <button
+                    className={styles.reset}
+                    onClick={onReset}
+                    type="button"
+                    aria-label="Clear all pricing filters"
+                    title="Clear all pricing filters"
+                >
                     Reset
                 </button>
             </div>

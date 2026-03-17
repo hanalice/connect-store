@@ -15,6 +15,7 @@ export function SortSelect({ value, onChange }: SortSelectProps) {
                 onChange={onChange}
                 label="Sort by"
                 id="sort-select"
+                ariaLabel="Change product sort order"
                 options={[
                     { value: 'default', label: 'Name: A to Z' },
                     { value: 'price-desc', label: 'Price: High to Low' },

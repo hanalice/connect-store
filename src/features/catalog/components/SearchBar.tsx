@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 interface SearchBarProps {
     value?: string;
     onSearch: (value: string) => void;
-    debounceMs?: number; // 防抖间隔，默认500ms
+    debounceMs?: number; // Debounce interval, default 500ms
 }
 
 export function SearchBar({ value = '', onSearch, debounceMs = 500 }: SearchBarProps) {
@@ -23,8 +23,8 @@ export function SearchBar({ value = '', onSearch, debounceMs = 500 }: SearchBarP
             <input
                 id="keyword-search"
                 className={styles.input}
-                placeholder="Find the items you are looking for"
-                aria-label="Find the items you are looking for"
+                placeholder="Search by creator or item title"
+                aria-label="Search by creator or item title"
                 value={inputValue}
                 onChange={handleChange}
             />

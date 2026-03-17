@@ -12,8 +12,9 @@ interface CustomSelectProps<T> {
     onChange: (value: T) => void;
     label?: string;
     id?: string;
-    direction?: 'row' | 'column'; // row: label左, column: label上
-    width?: number | string; // 固定宽度，默认自适应最长option
+    direction?: 'row' | 'column'; // row: label left, column: label top
+    width?: number | string; // Fixed width, defaults to auto-fitting longest option
+    ariaLabel?: string;
 }
 
 export function CustomSelect<T extends string | number>({
@@ -24,33 +25,34 @@ export function CustomSelect<T extends string | number>({
     id,
     direction = 'row',
     width,
+    ariaLabel,
 }: CustomSelectProps<T>) {
-    // 计算最长label宽度
+    // Calculate the width of the longest label
     const buttonRef = useRef<HTMLButtonElement>(null);
     const listRef = useRef<HTMLUListElement>(null);
     const [open, setOpen] = useState(false);
     const [focusIdx, setFocusIdx] = useState<number | null>(null);
     const [autoWidth, setAutoWidth] = useState<number | undefined>(undefined);
 
-    // 计算最长label宽度
+    // Calculate the width of the longest label
     useEffect(() => {
         if (width) return;
-        // 创建隐藏span测量最长label
+        // Create a hidden span to measure the longest label
         const span = document.createElement('span');
         span.style.visibility = 'hidden';
         span.style.position = 'absolute';
         span.style.whiteSpace = 'nowrap';
         span.style.fontSize = '12px';
         span.style.fontFamily = 'inherit';
-        span.style.fontWeight = '500'; // 对应 .button 的 weight
+        span.style.fontWeight = '500'; // Corresponds to .button weight
         span.innerText = options.reduce((a, b) => (a.length > b.label.length ? a : b.label), '');
         document.body.appendChild(span);
         const measuredWidth = span.offsetWidth;
         document.body.removeChild(span);
 
-        // 使用 requestAnimationFrame 避免在 Effect 中同步调用 setState 导致的级联渲染
+        // Use requestAnimationFrame to avoid cascading renders caused by synchronous setState in Effect
         const handle = requestAnimationFrame(() => {
-            setAutoWidth(measuredWidth + 48); // 箭头(16px) + 内边距(12px * 2) + 缓冲
+            setAutoWidth(measuredWidth + 48); // Arrow(16px) + Padding(12px * 2) + Buffer
         });
 
         return () => cancelAnimationFrame(handle);
@@ -129,6 +131,7 @@ export function CustomSelect<T extends string | number>({
                     type="button"
                     aria-haspopup="listbox"
                     aria-expanded={open}
+                    aria-label={ariaLabel}
                     onClick={handleToggle}
                     onKeyDown={handleKeyDown}
                     style={{ width: '100%' }}

@@ -55,11 +55,11 @@ describe('CatalogPage Integration', () => {
         expect(screen.getByText('Black Heels')).toBeInTheDocument();
 
         // Combined Flow: Search + Filter
-        const searchInput = screen.getByPlaceholderText(/Find the items/i);
+        const searchInput = screen.getByLabelText(/Search by creator or item title/i);
         fireEvent.change(searchInput, { target: { value: 'Adam' } });
 
         // Check "Paid" filter
-        const paidCheckbox = screen.getByLabelText('Paid');
+        const paidCheckbox = screen.getByLabelText(/Show only Paid products/i);
         fireEvent.click(paidCheckbox);
 
         // Grid should update
@@ -78,14 +78,16 @@ describe('CatalogPage Integration', () => {
         expect(await screen.findByText('Yellow Coat')).toBeInTheDocument();
 
         // Verify inputs are initialized from URL
-        const searchInput = screen.getByPlaceholderText(/Find the items/i) as HTMLInputElement;
+        const searchInput = screen.getByLabelText(
+            /Search by creator or item title/i,
+        ) as HTMLInputElement;
         expect(searchInput.value).toBe('Adam');
 
-        const paidCheckbox = screen.getByLabelText('Paid') as HTMLInputElement;
+        const paidCheckbox = screen.getByLabelText(/Show only Paid products/i) as HTMLInputElement;
         expect(paidCheckbox.checked).toBe(true);
 
         // Click Reset
-        const resetButton = screen.getByRole('button', { name: /reset/i });
+        const resetButton = screen.getByLabelText(/Clear all pricing filters/i);
         fireEvent.click(resetButton);
 
         // INT-05: Filters cleared, Search/Sort preserved
@@ -102,7 +104,7 @@ describe('CatalogPage Integration', () => {
 
         await screen.findByText('Yellow Coat');
 
-        const searchInput = screen.getByPlaceholderText(/Find the items/i);
+        const searchInput = screen.getByLabelText(/Search by creator or item title/i);
         fireEvent.change(searchInput, { target: { value: 'NonExistentKeyword' } });
 
         expect(await screen.findByText(/no contents matched/i)).toBeInTheDocument();
@@ -143,10 +145,10 @@ describe('CatalogPage Integration', () => {
         expect(screen.getByRole('main')).toBeInTheDocument();
 
         // Inputs
-        expect(screen.getByLabelText(/Find the items/i)).toBeInTheDocument();
-        expect(screen.getByLabelText('Paid')).toBeInTheDocument();
-        // For SortSelect, label is "Sort by"
-        expect(screen.getByLabelText(/sort by/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/Search by creator or item title/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/Show only Paid products/i)).toBeInTheDocument();
+        // For SortSelect, label is "Sort by", and button has descriptive aria-label
+        expect(screen.getByLabelText(/Change product sort order/i)).toBeInTheDocument();
     });
 
     it('INT-10: Switches theme from Dark to Light', async () => {
@@ -159,16 +161,15 @@ describe('CatalogPage Integration', () => {
         // Check initial state
         expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
 
-        // Find and click the theme button to open options
-        const themeButton = screen.getByRole('button', { name: /theme/i });
-        fireEvent.click(themeButton);
-
-        // Click the "Light" option
-        const lightOption = screen.getByRole('option', { name: 'Light' });
-        fireEvent.mouseDown(lightOption); // CustomSelect uses onMouseDown for selection
+        // Find and click the theme toggle button
+        const toggleButton = screen.getByRole('button', { name: /switch to light mode/i });
+        fireEvent.click(toggleButton);
 
         // Verify attribute update
         expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+
+        // Verify button label update
+        expect(screen.getByRole('button', { name: /switch to dark mode/i })).toBeInTheDocument();
     });
 
     it('INT-11: ProductSkeletonCard structure mirrors ProductCard for CLO prevention', () => {

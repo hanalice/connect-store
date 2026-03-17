@@ -9,7 +9,16 @@ export function ProductCard({ product }: ProductCardProps) {
     const pricingLabel = PRICING_LABEL[product.pricingOption];
 
     return (
-        <article className={styles.card}>
+        <div
+            className={styles.card}
+            tabIndex={0}
+            role="button"
+            aria-label={`${product.title} by ${product.creator}, price ${
+                product.pricingOption === PricingOption.PAID
+                    ? '$' + product.price.toFixed(2)
+                    : pricingLabel
+            }`}
+        >
             <img
                 className={styles.image}
                 src={product.imagePath}
@@ -29,6 +38,6 @@ export function ProductCard({ product }: ProductCardProps) {
                     )}
                 </div>
             </div>
-        </article>
+        </div>
     );
 }

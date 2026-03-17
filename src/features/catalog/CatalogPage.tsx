@@ -9,7 +9,7 @@ import { ProductGrid } from './components/ProductGrid';
 import { ProductSkeletonCard } from './components/ProductSkeletonCard';
 import { SearchBar } from './components/SearchBar';
 import { SortSelect } from './components/SortSelect';
-import { CustomSelect } from './components/CustomSelect';
+import { ThemeToggle } from './components/ThemeToggle';
 import { filterProducts, getVisibleProducts, sortProducts } from './selectors/catalogSelectors';
 import { useCatalogStore } from './store/useCatalogStore';
 import { PricingOption, type SortMode } from './types/product';
@@ -119,15 +119,9 @@ export function CatalogPage() {
                 <div className={[styles.headerInner, styles.container].join(' ')}>
                     <h1 className={styles.brandText}>CONNECT</h1>
                     <div className={styles.themeControl}>
-                        <CustomSelect<'dark' | 'light'>
-                            value={theme}
-                            onChange={setTheme}
-                            label="Theme"
-                            id="theme-switch"
-                            options={[
-                                { value: 'dark', label: 'Dark' },
-                                { value: 'light', label: 'Light' },
-                            ]}
+                        <ThemeToggle
+                            theme={theme}
+                            onToggle={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
                         />
                     </div>
                 </div>

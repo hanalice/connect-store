@@ -52,8 +52,8 @@
 .themeControl {
     display: flex;
     align-items: center;
-    gap: 8px;
     width: fit-content;
+    flex-shrink: 0;
 }
 
 .controlStack {
