@@ -37,15 +37,10 @@ export function CatalogPage() {
     const [isAppending, setIsAppending] = useState(false);
     const sentinelRef = useRef<HTMLDivElement | null>(null);
     const appendTimerRef = useRef<number | null>(null);
-    const pricingKey = useMemo(() => urlState.pricingOptions.join(','), [urlState.pricingOptions]);
 
     useEffect(() => {
         fetchProducts();
     }, [fetchProducts]);
-
-    useEffect(() => {
-        resetVisibleCount();
-    }, [urlState.keyword, pricingKey, urlState.sortMode, resetVisibleCount]);
 
     useEffect(() => {
         document.documentElement.setAttribute('data-theme', theme);
@@ -75,30 +70,41 @@ export function CatalogPage() {
         }
 
         const observer = new IntersectionObserver((entries) => {
-            if (!entries[0]?.isIntersecting || isAppending) {
-                return;
-            }
+            const isIntersecting = entries[0]?.isIntersecting;
+            if (!isIntersecting) return;
 
-            setIsAppending(true);
-            appendTimerRef.current = window.setTimeout(() => {
-                increaseVisibleCount();
-                setIsAppending(false);
-                appendTimerRef.current = null;
-            }, CATALOG_CONSTANTS.APPEND_DELAY_MS);
+            // Use functional update to avoid stale closure and dependency on isAppending
+            setIsAppending((currentlyAppending) => {
+                if (currentlyAppending) return true;
+
+                // Start the append timer
+                appendTimerRef.current = window.setTimeout(() => {
+                    increaseVisibleCount();
+                    setIsAppending(false);
+                    appendTimerRef.current = null;
+                }, CATALOG_CONSTANTS.APPEND_DELAY_MS);
+
+                return true;
+            });
         });
 
         observer.observe(target);
         return () => {
-            if (appendTimerRef.current) window.clearTimeout(appendTimerRef.current);
             observer.disconnect();
+            // Note: We don't clear the timer here to avoid cancelling the load
+            // during standard re-renders. The timer handles its own state.
         };
-    }, [hasMore, isAppending, increaseVisibleCount]);
+    }, [hasMore, increaseVisibleCount]);
 
     function patchUrlState(nextState: {
         keyword?: string;
         pricingOptions?: PricingOption[];
         sortMode?: SortMode;
     }) {
+        // Reset scroll and pending states before shifting the URL
+        resetVisibleCount();
+        setIsAppending(false);
+
         const state = {
             keyword: nextState.keyword ?? urlState.keyword,
             pricingOptions: nextState.pricingOptions ?? urlState.pricingOptions,
@@ -177,9 +183,14 @@ export function CatalogPage() {
                                 ))}
                             </ProductGrid>
 
-                            {isAppending ? (
+                            {isAppending && processedProducts.length > visibleCount ? (
                                 <ProductGrid>
-                                    {Array.from({ length: chunkSize }).map((_, index) => (
+                                    {Array.from({
+                                        length: Math.min(
+                                            chunkSize,
+                                            processedProducts.length - visibleCount,
+                                        ),
+                                    }).map((_, index) => (
                                         <ProductSkeletonCard key={`append-skeleton-${index}`} />
                                     ))}
                                 </ProductGrid>

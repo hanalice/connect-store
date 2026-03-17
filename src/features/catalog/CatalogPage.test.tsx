@@ -237,6 +237,63 @@ describe('CatalogPage Integration', () => {
         expect(document.documentElement.getAttribute('data-theme')).toBe('light');
     });
 
+    it('INT-15: Search clears pending scroll skeletons immediately (Concurrency)', async () => {
+        vi.useFakeTimers();
+
+        // 1. Setup with enough items to trigger scroll
+        const MANY_PRODUCTS = Array.from({ length: 50 }, (_, i) => ({
+            id: `p${i}`,
+            creator: i === 0 ? 'Target' : 'Other',
+            title: `Product ${i}`,
+            pricingOption: PricingOption.FREE,
+            imagePath: '/test.jpg',
+            price: 0,
+        }));
+        vi.mocked(productApi.getProducts).mockResolvedValue(MANY_PRODUCTS);
+
+        render(
+            <MemoryRouter>
+                <CatalogPage />
+            </MemoryRouter>,
+        );
+
+        // Wait for initial load (uses real promise, but we'll act with timers)
+        await act(async () => {
+            vi.runAllTicks();
+        });
+
+        // 2. Trigger scroll-append by firing IntersectionObserver callback
+        const [observerCallback] = vi.mocked(mockIntersectionObserver).mock.calls[0];
+        act(() => {
+            observerCallback([{ isIntersecting: true }]);
+        });
+
+        // 3. Now we are in "Pending Append" state (timer is running)
+        // Skeletons should be visible
+        expect(screen.queryAllByTestId('product-skeleton').length).toBeGreaterThan(0);
+
+        // 4. SUDDEN SEARCH CHANGE: User types 'Target'
+        const searchInput = screen.getByLabelText(/Search by creator or item title/i);
+        await act(async () => {
+            fireEvent.change(searchInput, { target: { value: 'Target' } });
+            // Fast-forward debounce if necessary
+            vi.advanceTimersByTime(1000);
+        });
+
+        // 5. VERIFY: Skeletons must be gone immediately, and only 1 matching product should show
+        // Even if the append timer eventually finishes, the list should have been reset by the search effect
+        const skeletons = screen.queryAllByTestId('product-skeleton');
+        expect(skeletons.length).toBe(0);
+
+        const products = screen.getAllByRole('button', { name: /price/i });
+        // Since search happened, visibleCount was reset to initialChunkSize,
+        // and filtered count is 1.
+        expect(products.length).toBe(1);
+        expect(screen.getByText('Product 0')).toBeInTheDocument();
+
+        vi.useRealTimers();
+    });
+
     it('INT-14: ProductSkeletonCard uses theme-aware colors', async () => {
         render(
             <MemoryRouter>
