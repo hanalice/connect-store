@@ -19,16 +19,17 @@ function isValidProduct(item: unknown): item is Product {
 }
 
 export async function getProducts(): Promise<Product[]> {
-    let lastError: Error | null = null;
-
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
             const response = await fetch(PRODUCTS_API_URL);
 
             if (!response.ok) {
-                throw new Error(
-                    `Request failed with status ${response.status} (Attempt ${attempt}/${MAX_RETRIES})`,
-                );
+                // Only retry for 5xx server errors
+                if (response.status >= 500 && attempt < MAX_RETRIES) {
+                    await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+                    continue;
+                }
+                throw new Error(`Request failed with status ${response.status}`);
             }
 
             const data = await response.json();
@@ -41,20 +42,23 @@ export async function getProducts(): Promise<Product[]> {
             return data.filter((item, index) => {
                 const valid = isValidProduct(item);
                 if (!valid) {
-                    console.warn(`Filtering out malformed product at index ${index}`, item);
+                    console.error(`Malformed product data at index ${index}:`, item);
                 }
                 return valid;
             });
         } catch (error) {
-            lastError = error instanceof Error ? error : new Error(String(error));
+            // fetch() throws TypeError on network failures (e.g. DNS, connection loss)
+            const isNetworkError = error instanceof TypeError;
 
-            // If we've reached max retries, don't wait, just throw
-            if (attempt < MAX_RETRIES) {
-                const delay = attempt * 500;
-                await new Promise((resolve) => setTimeout(resolve, delay));
+            if (isNetworkError && attempt < MAX_RETRIES) {
+                await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+                continue;
             }
+
+            // Re-throw if it's not a retryable error, or if we've exhausted retries
+            throw error;
         }
     }
 
-    throw lastError || new Error('Unknown error during fetch');
+    throw new Error('All retry attempts failed');
 }
