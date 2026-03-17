@@ -1,13 +1,19 @@
 import styles from './SearchBar.module.scss';
 import { useEffect, useRef, useState } from 'react';
 
+import { CATALOG_CONSTANTS } from '../constants/catalogConstants';
+
 interface SearchBarProps {
     value?: string;
     onSearch: (value: string) => void;
     debounceMs?: number; // Debounce interval, default 500ms
 }
 
-export function SearchBar({ value = '', onSearch, debounceMs = 500 }: SearchBarProps) {
+export function SearchBar({
+    value = '',
+    onSearch,
+    debounceMs = CATALOG_CONSTANTS.SEARCH_DEBOUNCE_MS,
+}: SearchBarProps) {
     const [inputValue, setInputValue] = useState(value);
     const [lastSentValue, setLastSentValue] = useState(value);
     const timerRef = useRef<number | null>(null);

@@ -261,4 +261,18 @@ describe('CatalogPage Integration', () => {
         // which drives the CSS variables for skeleton colors.
         expect(document.documentElement).toHaveAttribute('data-theme', 'light');
     });
+
+    it('INT-15: Verify body scroll sanity', () => {
+        render(
+            <MemoryRouter>
+                <CatalogPage />
+            </MemoryRouter>,
+        );
+
+        // Check computed style of body for overflow: hidden
+        // In JSDOM, this usually only reflects styles set via .style or <style> tags
+        // But it's a good practice to ensure no component logic is locking the scroll
+        const bodyStyle = window.getComputedStyle(document.body);
+        expect(bodyStyle.overflow).not.toBe('hidden');
+    });
 });

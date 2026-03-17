@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import styles from './CustomSelect.module.scss';
+import { CATALOG_CONSTANTS } from '../constants/catalogConstants';
 
 interface Option<T> {
     value: T;
@@ -42,7 +43,7 @@ export function CustomSelect<T extends string | number>({
         span.style.visibility = 'hidden';
         span.style.position = 'absolute';
         span.style.whiteSpace = 'nowrap';
-        span.style.fontSize = '12px';
+        span.style.fontSize = CATALOG_CONSTANTS.SELECT_MEASURE_FONT_SIZE;
         span.style.fontFamily = 'inherit';
         span.style.fontWeight = '500'; // Corresponds to .button weight
         span.innerText = options.reduce((a, b) => (a.length > b.label.length ? a : b.label), '');
@@ -52,7 +53,7 @@ export function CustomSelect<T extends string | number>({
 
         // Use requestAnimationFrame to avoid cascading renders caused by synchronous setState in Effect
         const handle = requestAnimationFrame(() => {
-            setAutoWidth(measuredWidth + 48); // Arrow(16px) + Padding(12px * 2) + Buffer
+            setAutoWidth(measuredWidth + CATALOG_CONSTANTS.SELECT_WIDTH_BUFFER); // Arrow + Padding + Buffer
         });
 
         return () => cancelAnimationFrame(handle);

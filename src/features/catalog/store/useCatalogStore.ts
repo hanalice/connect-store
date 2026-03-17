@@ -15,7 +15,7 @@ interface CatalogStore {
     resetVisibleCount: () => void;
 }
 
-const INITIAL_CHUNK_SIZE = 20;
+const INITIAL_CHUNK_SIZE = 24;
 
 let currentController: AbortController | null = null;
 

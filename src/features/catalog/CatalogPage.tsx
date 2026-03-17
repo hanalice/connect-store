@@ -15,6 +15,7 @@ import { useCatalogStore } from './store/useCatalogStore';
 import { usePreferenceStore } from './store/usePreferenceStore';
 import { PricingOption, type SortMode } from './types/product';
 import { readCatalogUrlState, writeCatalogUrlState } from './utils/catalogQueryParams';
+import { CATALOG_CONSTANTS } from './constants/catalogConstants';
 import styles from './CatalogPage.module.scss';
 
 export function CatalogPage() {
@@ -35,6 +36,7 @@ export function CatalogPage() {
     const { theme, toggleTheme } = usePreferenceStore();
     const [isAppending, setIsAppending] = useState(false);
     const sentinelRef = useRef<HTMLDivElement | null>(null);
+    const appendTimerRef = useRef<number | null>(null);
     const pricingKey = useMemo(() => urlState.pricingOptions.join(','), [urlState.pricingOptions]);
 
     useEffect(() => {
@@ -78,14 +80,18 @@ export function CatalogPage() {
             }
 
             setIsAppending(true);
-            window.setTimeout(() => {
+            appendTimerRef.current = window.setTimeout(() => {
                 increaseVisibleCount();
                 setIsAppending(false);
-            }, 200);
+                appendTimerRef.current = null;
+            }, CATALOG_CONSTANTS.APPEND_DELAY_MS);
         });
 
         observer.observe(target);
-        return () => observer.disconnect();
+        return () => {
+            if (appendTimerRef.current) window.clearTimeout(appendTimerRef.current);
+            observer.disconnect();
+        };
     }, [hasMore, isAppending, increaseVisibleCount]);
 
     function patchUrlState(nextState: {
@@ -128,12 +134,14 @@ export function CatalogPage() {
             <main className={styles.mainContent}>
                 <div className={styles.container}>
                     <div className={styles.controlStack}>
-                        <SearchBar
-                            value={urlState.keyword}
-                            onSearch={(keyword) => patchUrlState({ keyword })}
-                        />
+                        <section role="search" aria-label="Product Search">
+                            <SearchBar
+                                value={urlState.keyword}
+                                onSearch={(keyword) => patchUrlState({ keyword })}
+                            />
+                        </section>
 
-                        <section className={styles.filterRow}>
+                        <section className={styles.filterRow} aria-label="Pricing filters">
                             <FilterPanel
                                 selected={urlState.pricingOptions}
                                 onToggle={togglePricing}
@@ -141,7 +149,7 @@ export function CatalogPage() {
                             />
                         </section>
 
-                        <section className={styles.sortRow}>
+                        <section className={styles.sortRow} aria-label="Sort options">
                             <SortSelect
                                 value={urlState.sortMode}
                                 onChange={(sortMode) => patchUrlState({ sortMode })}
@@ -153,7 +161,7 @@ export function CatalogPage() {
 
                     {loading ? (
                         <ProductGrid>
-                            {Array.from({ length: 8 }).map((_, index) => (
+                            {Array.from({ length: chunkSize }).map((_, index) => (
                                 <ProductSkeletonCard key={`initial-skeleton-${index}`} />
                             ))}
                         </ProductGrid>
@@ -171,11 +179,9 @@ export function CatalogPage() {
 
                             {isAppending ? (
                                 <ProductGrid>
-                                    {Array.from({ length: Math.min(chunkSize, 4) }).map(
-                                        (_, index) => (
-                                            <ProductSkeletonCard key={`append-skeleton-${index}`} />
-                                        ),
-                                    )}
+                                    {Array.from({ length: chunkSize }).map((_, index) => (
+                                        <ProductSkeletonCard key={`append-skeleton-${index}`} />
+                                    ))}
                                 </ProductGrid>
                             ) : null}
 
