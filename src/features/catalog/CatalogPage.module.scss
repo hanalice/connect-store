@@ -66,6 +66,10 @@
 .sortRow {
   display: flex;
   justify-content: flex-end;
+
+  @media (max-width: 550px) {
+    width: 100%;
+  }
 }
 
 .sentinel {
