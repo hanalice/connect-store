@@ -24,6 +24,4 @@ Thumbs.db
 *.swp
 *.swo
 *.tsbuildinfo
-.agents/
-docs/
 package-lock.json

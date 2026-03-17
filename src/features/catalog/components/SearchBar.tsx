@@ -25,9 +25,11 @@ export function SearchBar({ value = '', onSearch, debounceMs = 500 }: SearchBarP
         id="keyword-search"
         className={styles.input}
         placeholder="Find the items you are looking for"
+        aria-label="Find the items you are looking for"
         value={inputValue}
         onChange={handleChange}
       />
+
     </div>
   )
 }
