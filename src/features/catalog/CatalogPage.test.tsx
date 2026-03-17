@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { ProductSkeletonCard } from './components/ProductSkeletonCard'
 import { MemoryRouter } from 'react-router-dom'
 import { CatalogPage } from './CatalogPage'
 import * as productApi from './services/productApi'
@@ -167,6 +168,21 @@ describe('CatalogPage Integration', () => {
 
     // Verify attribute update
     expect(document.documentElement.getAttribute('data-theme')).toBe('light')
+  })
+
+  it('INT-11: ProductSkeletonCard structure mirrors ProductCard for CLO prevention', () => {
+    render(<ProductSkeletonCard />)
+
+    // 1. Should have the main image placeholder
+    expect(screen.getByTestId('skeleton-image')).toBeInTheDocument()
+
+    // 2. Should have metaRow container
+    expect(screen.getByTestId('skeleton-meta-row')).toBeInTheDocument()
+
+    // 3. Should have specific placeholders for text elements
+    expect(screen.getByTestId('skeleton-title')).toBeInTheDocument()
+    expect(screen.getByTestId('skeleton-creator')).toBeInTheDocument()
+    expect(screen.getByTestId('skeleton-price')).toBeInTheDocument()
   })
 })
 
