@@ -1,22 +1,31 @@
 .wrapper {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 24px;
   background: var(--color-bg-panel);
   border: 1px solid var(--color-border);
   border-radius: 12px;
-  padding: 14px;
+  padding: 0 24px;
+  height: 52px;
+  box-sizing: border-box;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.options {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex: 1;
 }
 
 .resetWrapper {
-  flex-shrink: 0;
   margin-left: auto;
-}
-
-.title {
-  font-size: 1rem;
-  margin: 0;
 }
 
 .reset {
@@ -24,37 +33,23 @@
   background: var(--color-bg-card);
   color: var(--color-text-primary);
   border-radius: 8px;
-  padding: 6px 12px;
-  font-size: 0.875rem;
+  padding: 6px 14px;
+  font-size: 0.8125rem;
   font-weight: 600;
-  line-height: 1;
+  line-height: 1.2;
   cursor: pointer;
-  transition:
-    background 0.2s ease,
-    border-color 0.2s ease,
-    color 0.2s ease;
+  transition: all 0.2s ease;
 }
 
 .reset:hover {
-  border-color: color-mix(in srgb, var(--color-accent), var(--color-border) 50%);
+  border-color: var(--color-accent);
   color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent), transparent 92%);
 }
 
 .reset:active {
-  background: color-mix(in srgb, var(--color-accent), var(--color-bg-card) 88%);
-  border-color: var(--color-accent);
-}
-
-.reset:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--color-accent), transparent 40%);
-  outline-offset: 2px;
-}
-
-.options {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
+  background: color-mix(in srgb, var(--color-accent), transparent 85%);
+  transform: translateY(1px);
 }
 
 .option {

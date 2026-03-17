@@ -15,7 +15,7 @@ export interface Product {
   price: number
 }
 
-export type SortMode = 'default' | 'price-desc' | 'price-asc' | 'title-asc' | 'title-desc'
+export type SortMode = 'default' | 'price-desc' | 'price-asc'
 
 export const PRICING_LABEL: Record<PricingOption, string> = {
   [PricingOption.PAID]: 'Paid',

@@ -16,11 +16,9 @@ export function SortSelect({ value, onChange }: SortSelectProps) {
         label="Sort by"
         id="sort-select"
         options={[
-          { value: 'default', label: 'Default' },
-          { value: 'price-desc', label: 'Price: High to Low' },
-          { value: 'price-asc', label: 'Price: Low to High' },
-          { value: 'title-asc', label: 'Title: A to Z' },
-          { value: 'title-desc', label: 'Title: Z to A' },
+          { value: 'default', label: 'Item Name' },
+          { value: 'price-desc', label: 'Higher Price' },
+          { value: 'price-asc', label: 'Lower Price' },
         ]}
       />
     </div>

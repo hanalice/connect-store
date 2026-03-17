@@ -135,12 +135,17 @@ export function CatalogPage() {
 
       <main className={styles.mainContent}>
         <div className={styles.container}>
-          <SearchBar value={urlState.keyword} onSearch={(keyword) => patchUrlState({ keyword })} />
+          <div className={styles.controlStack}>
+            <SearchBar value={urlState.keyword} onSearch={(keyword) => patchUrlState({ keyword })} />
 
-          <section className={styles.controls}>
-            <FilterPanel selected={urlState.pricingOptions} onToggle={togglePricing} onReset={resetFilters} />
-            <SortSelect value={urlState.sortMode} onChange={(sortMode) => patchUrlState({ sortMode })} />
-          </section>
+            <section className={styles.filterRow}>
+              <FilterPanel selected={urlState.pricingOptions} onToggle={togglePricing} onReset={resetFilters} />
+            </section>
+
+            <section className={styles.sortRow}>
+              <SortSelect value={urlState.sortMode} onChange={(sortMode) => patchUrlState({ sortMode })} />
+            </section>
+          </div>
 
           {error ? <ErrorState message={error} onRetry={fetchProducts} /> : null}
 

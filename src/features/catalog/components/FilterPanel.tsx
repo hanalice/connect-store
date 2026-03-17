@@ -12,6 +12,7 @@ const OPTIONS: PricingOption[] = [PricingOption.PAID, PricingOption.FREE, Pricin
 export function FilterPanel({ selected, onToggle, onReset }: FilterPanelProps) {
   return (
     <div className={styles.wrapper}>
+      <span className={styles.label}>Pricing Option</span>
       <div className={styles.options}>
         {OPTIONS.map((option) => (
           <label key={option} className={styles.option}>

@@ -1,6 +1,6 @@
 import { PricingOption, type SortMode } from '../types/product'
 
-const VALID_SORT_MODES: SortMode[] = ['default', 'price-desc', 'price-asc', 'title-asc', 'title-desc']
+const VALID_SORT_MODES: SortMode[] = ['default', 'price-desc', 'price-asc']
 
 export interface CatalogUrlState {
   keyword: string

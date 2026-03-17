@@ -25,18 +25,49 @@ export function filterProducts(products: Product[], query: CatalogQueryState): P
 export function sortProducts(products: Product[], sortMode: SortMode): Product[] {
   const list = [...products]
 
-  // request not to consider secondary sorting for items with the same value
+  // request not to consider secondary sorting for items with the same value, 
+  // but I still think the secondary sorting is necessary,otherwise each time the 
+  // order of items with the same value will be different, which is not good for user experience
   switch (sortMode) {
     case 'price-desc':
-      return list.sort((a, b) => b.price - a.price)
+      return list.sort((a, b) => {
+        // Priority: PAID (0) > FREE (1) > VIEW_ONLY (2)
+        if (a.pricingOption !== b.pricingOption) {
+          return a.pricingOption - b.pricingOption
+        }
+
+        // Within PAID category, sort by price DESC
+        if (a.pricingOption === PricingOption.PAID) {
+          if (b.price !== a.price) {
+            return b.price - a.price
+          }
+        }
+
+        // Fallback to title A-Z
+        return a.title.localeCompare(b.title)
+      })
+
     case 'price-asc':
-      return list.sort((a, b) => a.price - b.price)
-    case 'title-asc':
-      return list.sort((a, b) => a.title.localeCompare(b.title))
-    case 'title-desc':
-      return list.sort((a, b) => b.title.localeCompare(a.title))
+      return list.sort((a, b) => {
+        // Priority: VIEW_ONLY (2) > FREE (1) > PAID (0)
+        if (a.pricingOption !== b.pricingOption) {
+          return b.pricingOption - a.pricingOption
+        }
+
+        // Within PAID category, sort by price ASC
+        if (a.pricingOption === PricingOption.PAID) {
+          if (a.price !== b.price) {
+            return a.price - b.price
+          }
+        }
+
+        // Fallback to title A-Z
+        return a.title.localeCompare(b.title)
+      })
+
+    case 'default':
     default:
-      return list
+      return list.sort((a, b) => a.title.localeCompare(b.title))
   }
 }
 
