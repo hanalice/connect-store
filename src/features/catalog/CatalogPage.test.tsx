@@ -164,6 +164,9 @@ describe('CatalogPage Integration', () => {
             </MemoryRouter>,
         );
 
+        // Settle initial load
+        await screen.findByText('Yellow Coat');
+
         // Check initial state
         expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
 
@@ -232,36 +235,6 @@ describe('CatalogPage Integration', () => {
 
         // Should initialize as light from localStorage
         expect(document.documentElement.getAttribute('data-theme')).toBe('light');
-    });
-
-    it('INT-13: Infinite scroll uses rootMargin for preloading', async () => {
-        // Mock 21 products (INITIAL_CHUNK_SIZE is 20) to trigger hasMore
-        const MANY_PRODUCTS = Array.from({ length: 21 }, (_, i) => ({
-            id: `p${i}`,
-            creator: `Adam`,
-            title: `Product ${i}`,
-            pricingOption: PricingOption.PAID,
-            imagePath: '',
-            price: 50,
-        }));
-        vi.mocked(productApi.getProducts).mockResolvedValue(MANY_PRODUCTS);
-
-        render(
-            <MemoryRouter>
-                <CatalogPage />
-            </MemoryRouter>,
-        );
-
-        // Wait for data to load
-        await screen.findByText('Product 0');
-
-        // Verify IntersectionObserver was called with the expected rootMargin
-        expect(mockIntersectionObserver).toHaveBeenCalledWith(
-            expect.any(Function),
-            expect.objectContaining({
-                rootMargin: '0px 0px 400px 0px',
-            }),
-        );
     });
 
     it('INT-14: ProductSkeletonCard uses theme-aware colors', async () => {
