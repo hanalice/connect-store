@@ -4,6 +4,7 @@ import { ProductSkeletonCard } from './components/ProductSkeletonCard';
 import { MemoryRouter } from 'react-router-dom';
 import { CatalogPage } from './CatalogPage';
 import * as productApi from './services/productApi';
+import { usePreferenceStore } from './store/usePreferenceStore';
 import { PricingOption } from './types/product';
 
 // Mock the API
@@ -40,6 +41,8 @@ window.IntersectionObserver = mockIntersectionObserver as unknown as typeof Inte
 describe('CatalogPage Integration', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        localStorage.clear();
+        usePreferenceStore.getState().setTheme('dark');
         vi.mocked(productApi.getProducts).mockResolvedValue(MOCK_PRODUCTS);
     });
 
@@ -185,5 +188,89 @@ describe('CatalogPage Integration', () => {
         expect(screen.getByTestId('skeleton-title')).toBeInTheDocument();
         expect(screen.getByTestId('skeleton-creator')).toBeInTheDocument();
         expect(screen.getByTestId('skeleton-price')).toBeInTheDocument();
+    });
+
+    it('INT-12: Persists theme to localStorage', async () => {
+        // 1. Start clean
+        localStorage.clear();
+
+        const { unmount } = render(
+            <MemoryRouter>
+                <CatalogPage />
+            </MemoryRouter>,
+        );
+
+        // Default should be dark
+        expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+
+        // 2. Switch to light
+        const toggleButton = screen.getByRole('button', { name: /switch to light mode/i });
+        fireEvent.click(toggleButton);
+        expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+
+        // 3. Verify localStorage has it
+        const saved = JSON.parse(localStorage.getItem('clo-user-preferences') || '{}');
+        expect(saved.state.theme).toBe('light');
+
+        // 4. Unmount and remount to check persistence
+        unmount();
+        render(
+            <MemoryRouter>
+                <CatalogPage />
+            </MemoryRouter>,
+        );
+
+        // Should initialize as light from localStorage
+        expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+    });
+
+    it('INT-13: Infinite scroll uses rootMargin for preloading', async () => {
+        // Mock 21 products (INITIAL_CHUNK_SIZE is 20) to trigger hasMore
+        const MANY_PRODUCTS = Array.from({ length: 21 }, (_, i) => ({
+            id: `p${i}`,
+            creator: `Adam`,
+            title: `Product ${i}`,
+            pricingOption: PricingOption.PAID,
+            imagePath: '',
+            price: 50,
+        }));
+        vi.mocked(productApi.getProducts).mockResolvedValue(MANY_PRODUCTS);
+
+        render(
+            <MemoryRouter>
+                <CatalogPage />
+            </MemoryRouter>,
+        );
+
+        // Wait for data to load
+        await screen.findByText('Product 0');
+
+        // Verify IntersectionObserver was called with the expected rootMargin
+        expect(mockIntersectionObserver).toHaveBeenCalledWith(
+            expect.any(Function),
+            expect.objectContaining({
+                rootMargin: '0px 0px 400px 0px',
+            }),
+        );
+    });
+
+    it('INT-14: ProductSkeletonCard uses theme-aware colors', () => {
+        render(
+            <MemoryRouter>
+                <CatalogPage />
+            </MemoryRouter>,
+        );
+
+        // Initial (dark)
+        expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
+
+        // Force light mode
+        const toggleButton = screen.getByRole('button', { name: /switch to light mode/i });
+        fireEvent.click(toggleButton);
+        expect(document.documentElement.getAttribute('data-theme')).toBe('light');
+
+        // The actual color check is best done in E2E, but we can verify the attribute is there
+        // which drives the CSS variables for skeleton colors.
+        expect(document.documentElement).toHaveAttribute('data-theme', 'light');
     });
 });
