@@ -19,12 +19,16 @@ export function ProductCard({ product }: ProductCardProps) {
                     : pricingLabel
             }`}
         >
-            <img
-                className={styles.image}
-                src={product.imagePath}
-                alt={product.title}
-                loading="lazy"
-            />
+            {product.imagePath ? (
+                <img
+                    className={styles.image}
+                    src={product.imagePath}
+                    alt={product.title}
+                    loading="lazy"
+                />
+            ) : (
+                <div className={styles.imagePlaceholder} aria-hidden="true" />
+            )}
             <div className={styles.metaRow}>
                 <div className={styles.meta}>
                     <h3 className={styles.title}>{product.title}</h3>

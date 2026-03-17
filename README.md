@@ -1,45 +1,42 @@
-# CLO Connect Store
+# Connect Store
 
-React + TypeScript + Vite project based on `docs/架构设计.md`.
+A professional-grade digital asset catalog platform built with a focus on performance, scalability, and maintainability.
 
-## Tech Stack
+## Key Features
 
-- React
-- TypeScript
-- Vite
-- Zustand
-- React Router
-- fetch
-- SCSS Modules + CSS Custom Properties
-- Vitest + React Testing Library
-- ESLint + Prettier
-- Husky + lint-staged + Commitlint
+- **Performance-Optimized Rendering**: Implements highly efficient infinite scrolling using `IntersectionObserver` with strategic pre-fetching (rootMargin) to minimize perceived latency.
+- **State-Managed Filtering & Search**: Advanced catalog management featuring debounced real-time search and multi-criteria filtering, fully synchronized with URL state for persistent navigation.
+- **Advanced Sorting Logic**: Features a categorical priority sorting engine (Paid > Free > View Only) with deterministic alphabetical fallback for consistent data presentation.
+- **Architectural UI Consistency**: Utilizes precision-matched Skeleton components to eliminate Cumulative Layout Shift (CLS) during asynchronous data loading.
+- **Robust Design System**: Implements a theme-aware architecture using CSS Custom Properties, supporting system-level theme detection and persistence.
+- **Production-Ready CI/CD**: Integrated with automated workflows for type-checking, linting, unit testing, and continuous deployment.
 
-## Scripts
+## Technical Stack
 
-- `npm run dev`: start local development server
-- `npm run build`: type-check and build production bundle
-- `npm run preview`: preview build output
-- `npm run lint`: run ESLint
-- `npm run format`: format files with Prettier
-- `npm run format:check`: check Prettier formatting
-- `npm run test`: run unit tests
-- `npm run test:watch`: run tests in watch mode
+- **Framework**: React 19 + TypeScript
+- **State Management**: Zustand
+- **Routing**: React Router 7
+- **Styling**: SCSS Modules + CSS Variables (Design Tokens)
+- **Testing**: Vitest + React Testing Library
+- **Code Quality**: ESLint, Prettier, Husky, Commitlint
+- **Build Infrastructure**: Vite 8 (+ GitHub Actions for CI/CD)
 
-## Scope
+## Project Scripts
 
-- Client-side filtering + sorting selectors, use URL query state helpers (`q`, `pricing`, `sort`)
-- Theme tokens and runtime theme switch (`dark`, `light`)
-- Infinite scrolling skeleton structure with IntersectionObserver
-- Commit and CI baseline configuration
+- `npm run dev`: Start development server
+- `npm run build`: Type-check and build production assets
+- `npm run preview`: Preview production build
+- `npm run test`: Execution of test suites (unit/integration)
+- `npm run lint`: Static analysis and linting
+- `npm run format`: Code formatting
 
-## Project Structure
+## Directory Overview
 
 ```txt
 src/
-  app/
-  features/catalog/
-  shared/
-  styles/
-  test/
+├── app/          # Global configuration and routing
+├── features/     # Domain-specific logic (Catalog modules)
+├── shared/       # Reusable components and utilities
+├── styles/       # Global styling and design tokens
+└── test/         # Testing infrastructure
 ```

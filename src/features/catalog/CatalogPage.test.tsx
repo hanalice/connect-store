@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { ProductSkeletonCard } from './components/ProductSkeletonCard';
 import { MemoryRouter } from 'react-router-dom';
 import { CatalogPage } from './CatalogPage';
@@ -18,7 +18,7 @@ const MOCK_PRODUCTS = [
         creator: 'Adam',
         title: 'Yellow Coat',
         pricingOption: PricingOption.PAID,
-        imagePath: '',
+        imagePath: '/test-image.jpg',
         price: 50,
     },
     {
@@ -26,7 +26,7 @@ const MOCK_PRODUCTS = [
         creator: 'Anisha',
         title: 'Black Heels',
         pricingOption: PricingOption.FREE,
-        imagePath: '',
+        imagePath: '/test-image.jpg',
         price: 0,
     },
 ];
@@ -142,6 +142,9 @@ describe('CatalogPage Integration', () => {
             </MemoryRouter>,
         );
 
+        // Settle initial load
+        await screen.findByText('Yellow Coat');
+
         // Landmarks
         // Depending on RTL environment, 'header' is role 'banner' if it's top-level
         expect(screen.getByRole('banner')).toBeInTheDocument();
@@ -166,7 +169,9 @@ describe('CatalogPage Integration', () => {
 
         // Find and click the theme toggle button
         const toggleButton = screen.getByRole('button', { name: /switch to light mode/i });
-        fireEvent.click(toggleButton);
+        await act(async () => {
+            fireEvent.click(toggleButton);
+        });
 
         // Verify attribute update
         expect(document.documentElement.getAttribute('data-theme')).toBe('light');
@@ -205,7 +210,9 @@ describe('CatalogPage Integration', () => {
 
         // 2. Switch to light
         const toggleButton = screen.getByRole('button', { name: /switch to light mode/i });
-        fireEvent.click(toggleButton);
+        await act(async () => {
+            fireEvent.click(toggleButton);
+        });
         expect(document.documentElement.getAttribute('data-theme')).toBe('light');
 
         // 3. Verify localStorage has it
@@ -219,6 +226,9 @@ describe('CatalogPage Integration', () => {
                 <CatalogPage />
             </MemoryRouter>,
         );
+
+        // Settle remounted load
+        await screen.findByText('Yellow Coat');
 
         // Should initialize as light from localStorage
         expect(document.documentElement.getAttribute('data-theme')).toBe('light');
@@ -254,19 +264,24 @@ describe('CatalogPage Integration', () => {
         );
     });
 
-    it('INT-14: ProductSkeletonCard uses theme-aware colors', () => {
+    it('INT-14: ProductSkeletonCard uses theme-aware colors', async () => {
         render(
             <MemoryRouter>
                 <CatalogPage />
             </MemoryRouter>,
         );
 
+        // Settle initial load
+        await screen.findByText('Yellow Coat');
+
         // Initial (dark)
         expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
 
         // Force light mode
         const toggleButton = screen.getByRole('button', { name: /switch to light mode/i });
-        fireEvent.click(toggleButton);
+        await act(async () => {
+            fireEvent.click(toggleButton);
+        });
         expect(document.documentElement.getAttribute('data-theme')).toBe('light');
 
         // The actual color check is best done in E2E, but we can verify the attribute is there
