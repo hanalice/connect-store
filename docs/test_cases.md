@@ -49,6 +49,7 @@
 | INT-14 | Scroll-Search Concurrency                  | Change search keyword while a "Load More" chunk is pending. | Pending load is cleanly canceled/reset; new search results render without stuck skeletons.                             |
 | INT-15 | Contextual Skeleton Count                  | Trigger loading for a small remaining set of items.         | Number of skeleton cards shown does not exceed the remaining item count (or at least reflects the actual data volume). |
 | INT-16 | Infinite Scroll Continuation               | Verify scroll works consistently for 3+ chunks.             | No logic deadlocks occur; scroll triggers correctly until `hasMore` is false.                                          |
+| INT-17 | Image Load Error Fallback                  | Manually trigger `onError` on a ProductCard image.          | Image element is replaced by a placeholder with "Image not available" text.                                            |
 
 ## 4. Accessibility (A11y)
 

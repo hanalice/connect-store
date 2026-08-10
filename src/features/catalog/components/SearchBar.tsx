@@ -64,8 +64,8 @@ export function SearchBar({
                 <input
                     id="keyword-search"
                     className={styles.input}
-                    placeholder="Search by creator or item title"
-                    aria-label="Search by creator or item title"
+                    placeholder="Search by name or creator"
+                    aria-label="Search by name or creator"
                     value={inputValue}
                     onChange={handleChange}
                     onKeyDown={handleKeyDown}

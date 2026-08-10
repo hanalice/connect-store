@@ -16,7 +16,7 @@ describe('SearchBar Hybrid Mode', () => {
 
     it('triggers search after debounce delay when typing', () => {
         render(<SearchBar onSearch={onSearch} debounceMs={500} />);
-        const input = screen.getByLabelText(/Search by creator or item title/i);
+        const input = screen.getByLabelText(/Search by name or creator/i);
 
         fireEvent.change(input, { target: { value: 'test' } });
 
@@ -34,7 +34,7 @@ describe('SearchBar Hybrid Mode', () => {
 
     it('triggers search immediately when pressing Enter', () => {
         render(<SearchBar onSearch={onSearch} debounceMs={500} />);
-        const input = screen.getByLabelText(/Search by creator or item title/i);
+        const input = screen.getByLabelText(/Search by name or creator/i);
 
         fireEvent.change(input, { target: { value: 'quick search' } });
 
@@ -53,7 +53,7 @@ describe('SearchBar Hybrid Mode', () => {
 
     it('triggers search immediately when clicking the magnifying glass', () => {
         render(<SearchBar onSearch={onSearch} debounceMs={500} />);
-        const input = screen.getByLabelText(/Search by creator or item title/i);
+        const input = screen.getByLabelText(/Search by name or creator/i);
         const searchButton = screen.getByLabelText(/Run search/i);
 
         fireEvent.change(input, { target: { value: 'click search' } });
@@ -73,7 +73,7 @@ describe('SearchBar Hybrid Mode', () => {
 
     it('intercepts redundant requests if input has not changed', () => {
         render(<SearchBar onSearch={onSearch} value="initial" debounceMs={500} />);
-        const input = screen.getByLabelText(/Search by creator or item title/i);
+        const input = screen.getByLabelText(/Search by name or creator/i);
         const searchButton = screen.getByLabelText(/Run search/i);
 
         // Try to search for the same initial value
@@ -98,7 +98,7 @@ describe('SearchBar Hybrid Mode', () => {
 
     it('cancels pending debounce when manual trigger is used', () => {
         render(<SearchBar onSearch={onSearch} debounceMs={500} />);
-        const input = screen.getByLabelText(/Search by creator or item title/i);
+        const input = screen.getByLabelText(/Search by name or creator/i);
 
         fireEvent.change(input, { target: { value: 'part1' } });
 

@@ -58,7 +58,7 @@ describe('CatalogPage Integration', () => {
         expect(screen.getByText('Black Heels')).toBeInTheDocument();
 
         // Combined Flow: Search + Filter
-        const searchInput = screen.getByLabelText(/Search by creator or item title/i);
+        const searchInput = screen.getByLabelText(/Search by name or creator/i);
         fireEvent.change(searchInput, { target: { value: 'Adam' } });
 
         // Check "Paid" filter
@@ -81,9 +81,7 @@ describe('CatalogPage Integration', () => {
         expect(await screen.findByText('Yellow Coat')).toBeInTheDocument();
 
         // Verify inputs are initialized from URL
-        const searchInput = screen.getByLabelText(
-            /Search by creator or item title/i,
-        ) as HTMLInputElement;
+        const searchInput = screen.getByLabelText(/Search by name or creator/i) as HTMLInputElement;
         expect(searchInput.value).toBe('Adam');
 
         const paidCheckbox = screen.getByLabelText(/Show only Paid products/i) as HTMLInputElement;
@@ -107,7 +105,7 @@ describe('CatalogPage Integration', () => {
 
         await screen.findByText('Yellow Coat');
 
-        const searchInput = screen.getByLabelText(/Search by creator or item title/i);
+        const searchInput = screen.getByLabelText(/Search by name or creator/i);
         fireEvent.change(searchInput, { target: { value: 'NonExistentKeyword' } });
 
         expect(await screen.findByText(/no contents matched/i)).toBeInTheDocument();
@@ -151,7 +149,7 @@ describe('CatalogPage Integration', () => {
         expect(screen.getByRole('main')).toBeInTheDocument();
 
         // Inputs
-        expect(screen.getByLabelText(/Search by creator or item title/i)).toBeInTheDocument();
+        expect(screen.getByLabelText(/Search by name or creator/i)).toBeInTheDocument();
         expect(screen.getByLabelText(/Show only Paid products/i)).toBeInTheDocument();
         // For SortSelect, label is "Sort by", and button has descriptive aria-label
         expect(screen.getByLabelText(/Change product sort order/i)).toBeInTheDocument();
@@ -298,7 +296,7 @@ describe('CatalogPage Integration', () => {
         expect(screen.queryAllByTestId('product-skeleton').length).toBeGreaterThan(0);
 
         // 4. SUDDEN SEARCH CHANGE: User types 'Target'
-        const searchInput = screen.getByLabelText(/Search by creator or item title/i);
+        const searchInput = screen.getByLabelText(/Search by name or creator/i);
         await act(async () => {
             fireEvent.change(searchInput, { target: { value: 'Target' } });
             // Fast-forward debounce if necessary
