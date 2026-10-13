@@ -26,16 +26,9 @@ Thumbs.db
 *.tsbuildinfo
 
 # agent-hub 本机物化视图（由 init-project.sh 生成，不要提交）
-AGENTS.md
-.agent-hub.lock
 .agent-hub-assets/
-.agents/skills/commit-message
-.agents/skills/devops_expert
-.agents/skills/product_designer
-.agents/skills/project_manager
-.agents/skills/qa_expert
-.agents/skills/security_expert
-.agents/skills/system_architect
-.agents/skills/tmux
-.agents/rules/
-.cursor/rules/hub-global-rules.mdc
+.agents/
+.cursor/
+.agent-hub.lock
+AGENTS.md
+GEMINI.md
