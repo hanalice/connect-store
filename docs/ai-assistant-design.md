@@ -3,6 +3,7 @@
 > 版本：v0.3（2026-09-01，✅ 已确认）
 > 作者：Alice（自研项目）
 > 定位：Showcase —— AI 前端架构师（Agent 交互 + Streaming UI + Generative UI + HITL）
+> 职责边界（2026-10-13）：承担 **AI 交互层**证据（Generative UI / 状态机投影 / HITL）+ React 底层深度；**不**承担检索/编排层证据（RAG / 混合检索 / 多 Agent 编排由 newtalk 承担，避免重复）
 > 对齐：阿里 #40（AI前端开发-商品&库存，Generative UI + Agent + 流式）、#17（智能搜索，对话式导购）；8/31 趋势报告 P0/P1
 
 ---
