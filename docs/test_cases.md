@@ -99,13 +99,13 @@
 
 ### 3.2 AI Assistant Streaming UI & Interaction (`ChatPanel.test.tsx`, `chatApi.ts`)
 
-| ID        | Title                             | Description                                                             | Expected Result                                                                                 |
-| --------- | --------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| INT-AI-01 | SSE Token Streaming & Typewriter  | Stream simulated SSE chunks using Vitest fake timers and mock stream.   | Text renders incrementally with typewriter effect; autoscrolls to bottom.                       |
-| INT-AI-02 | Network Disconnect & AbortSignal  | User clicks "Stop" or closes drawer while SSE stream is active.         | `AbortController.abort()` is triggered; stream cancels immediately; state returns to `idle`.    |
-| INT-AI-03 | Tool Call Visualization Rendering | LLM stream delivers `tool-call` and `tool-result` event payloads.       | `ToolCallPanel` renders active tool name, parsed parameters, loading spinner, and duration.     |
-| INT-AI-04 | Generative UI Dynamic Card Render | Stream emits structured `productGrid` tool output payload.              | Interactive product cards render dynamically inline inside the assistant message bubble.        |
-| INT-AI-05 | Assistant State Badge Projection  | State machine shifts between `thinking`, `tool_calling`, `await_human`. | `AgentStatusBadge` displays matching visual indicators, labels, and accessible ARIA attributes. |
+| ID        | Title                             | Description                                                                                   | Expected Result                                                                                                                                          |
+| --------- | --------------------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| INT-AI-01 | SSE Token Streaming & Typewriter  | Stream simulated SSE chunks using Vitest fake timers and mock stream.                         | Text renders incrementally with typewriter effect; autoscrolls to bottom.                                                                                |
+| INT-AI-02 | Network Disconnect & AbortSignal  | User clicks "Stop" or closes drawer while the stream is active.                               | `AbortController.abort()` is triggered; stream cancels immediately; state returns to `aborted` (not `idle`), no retry button shown.                      |
+| INT-AI-03 | Tool Call Visualization Rendering | UI message stream delivers `tool-${toolName}` parts (`input-available` → `output-available`). | `ToolCallPanel` renders active tool name, parsed parameters, loading spinner, and duration.                                                              |
+| INT-AI-04 | Generative UI Dynamic Card Render | `tool-searchCatalog` part reaches `output-available` with items.                              | Registry dispatches to `ProductGrid` + `ProductCard` inline in the message bubble; empty result → `EmptyState`; unregistered `toolName` → text fallback. |
+| INT-AI-05 | Assistant State Badge Projection  | State machine shifts between `thinking`, `tool_calling`, `await_human`.                       | `AgentStatusBadge` displays matching visual indicators, labels, and accessible ARIA attributes.                                                          |
 
 ### 3.3 HITL Order Approval Workflow (`ApprovalCard.test.tsx`)
 
@@ -142,12 +142,14 @@
 
 ### 5.2 AI Assistant BFF & Tool Security (`server/`)
 
-| ID        | Title                               | Description                                                                  | Expected Result                                                                                |
-| --------- | ----------------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| API-AI-01 | Unapproved PlaceOrder Interception  | Client directly invokes `placeOrder` endpoint without prior approved status. | BFF rejects request with HTTP 403 / unapproved error; no order is created.                     |
-| API-AI-02 | Dual-Channel Tool Routing           | Test prompts for structured filter ("under $20") vs semantic ("cyberpunk").  | Structured query triggers `searchCatalog`; semantic query triggers `semanticSearch`.           |
-| API-AI-03 | Upstream LLM Timeout & Error 500    | Upstream OpenAI-compatible API times out or responds with HTTP 500/429.      | BFF outputs standardized SSE error event; frontend cleanly captures error without breaking UI. |
-| API-AI-04 | Order Persistence & Status Recovery | Query order status by `orderId` after client browser refresh or disconnect.  | BFF returns current `pending`/`approved` state from memory store, enabling session recovery.   |
+| ID        | Title                                | Description                                                                       | Expected Result                                                                                                                       |
+| --------- | ------------------------------------ | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| API-AI-01 | Unapproved PlaceOrder Interception   | Client directly invokes `placeOrder` endpoint without prior approved status.      | BFF rejects request with HTTP 403 / unapproved error; no order is created.                                                            |
+| API-AI-02 | Single-Channel Routing + Price Range | Prompt "under $20" vs "cyberpunk game cover art".                                 | Both route to `searchCatalog`: `{ maxPrice: 20 }` vs LLM query-understanding → `{ query: 'cyberpunk' }` (no vector retrieval exists). |
+| API-AI-03 | Upstream LLM Timeout & Error 500     | Upstream OpenAI-compatible API times out or responds with HTTP 500/429.           | BFF outputs standardized SSE error event; frontend cleanly captures error without breaking UI.                                        |
+| API-AI-04 | Order Persistence & Status Recovery  | Query order status by `orderId` after client browser refresh or disconnect.       | BFF returns current `pending`/`approved`/`expired` state from the order table, enabling recovery.                                     |
+| API-AI-05 | Approval TTL via `toolApproval`      | Replay an approval response after its TTL has elapsed.                            | `toolApproval` callback rejects it with `{ type: 'denied', reason: 'approval expired' }`.                                             |
+| API-AI-06 | Forged Approval Interception         | Craft a valid-looking `tool-approval-response` client-side (no server signature). | BFF rejects it before execution (HMAC signature mismatch); no order is created.                                                       |
 
 ---
 
@@ -155,5 +157,6 @@
 
 - Execute `npm test` or `vitest run` on PR and push.
 - Keep all 27 baseline catalog tests passing (0 regressions).
+- AI-layer target after v0.4: **≥45 total** (27 baseline + state machine 7 + registry 4 + transport 2 + approval/TTL 5) — target value, to be filled with measured count at G4.
 - Target test coverage for state machine and registry: 100% path coverage.
 - Overall assistant business logic test coverage target: > 90%.
