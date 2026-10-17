@@ -1,0 +1,12 @@
+{
+  "name": "connect-store-ttl-approval-experiment",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "test:ttl": "node ttl-approval-experiment.mjs"
+  },
+  "dependencies": {
+    "ai": "^7.0.142",
+    "zod": "^4.6.7"
+  }
+}
