@@ -1,0 +1,138 @@
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+
+import { useAssistantStore } from '../state/useAssistantStore';
+import { ReasoningBlock } from './ReasoningBlock';
+import { StreamingText } from './StreamingText';
+import styles from './ChatPanel.module.scss';
+
+/** 距底部小于该阈值视为「用户在底部」，自动滚动才跟随（智能滚动阈值）。 */
+const STICK_THRESHOLD_PX = 40;
+
+export function ChatPanel() {
+    const { messages, status, error, sendMessage, abort } = useAssistantStore();
+    const [draft, setDraft] = useState('');
+    const listRef = useRef<HTMLDivElement | null>(null);
+    const stickToBottomRef = useRef(true);
+
+    const isBusy = status === 'thinking' || status === 'streaming';
+
+    // 智能自动滚动：滚动时记录用户是否在底部；上滑阅读后不抢滚动
+    const handleScroll = () => {
+        const el = listRef.current;
+        if (!el) return;
+        stickToBottomRef.current =
+            el.scrollHeight - el.scrollTop - el.clientHeight < STICK_THRESHOLD_PX;
+    };
+
+    useEffect(() => {
+        const el = listRef.current;
+        if (el && stickToBottomRef.current) {
+            el.scrollTop = el.scrollHeight;
+        }
+    }, [messages, status]);
+
+    const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        if (!draft.trim() || isBusy) return;
+        stickToBottomRef.current = true;
+        void sendMessage(draft);
+        setDraft('');
+    };
+
+    return (
+        <div className={styles.panel}>
+            <div
+                className={styles.messageList}
+                ref={listRef}
+                onScroll={handleScroll}
+                role="log"
+                aria-label="对话消息列表"
+            >
+                {messages.length === 0 ? (
+                    <p className={styles.placeholder}>试试问我：「推荐免费的素材」</p>
+                ) : null}
+                {messages.map((message, index) => {
+                    const isLastAssistant =
+                        message.role === 'assistant' && index === messages.length - 1;
+                    const streaming = isLastAssistant && isBusy;
+                    const isEmptyAssistant =
+                        message.role === 'assistant' && !message.text && !message.reasoning;
+
+                    return (
+                        <div
+                            key={message.id}
+                            className={
+                                message.role === 'user' ? styles.userRow : styles.assistantRow
+                            }
+                        >
+                            <div
+                                className={
+                                    message.role === 'user'
+                                        ? styles.userBubble
+                                        : styles.assistantBubble
+                                }
+                            >
+                                {message.role === 'user' ? (
+                                    message.text
+                                ) : (
+                                    <>
+                                        <ReasoningBlock
+                                            reasoning={message.reasoning}
+                                            streaming={streaming}
+                                        />
+                                        {message.text ? (
+                                            <StreamingText
+                                                text={message.text}
+                                                streaming={streaming}
+                                            />
+                                        ) : null}
+                                        {isEmptyAssistant && streaming ? (
+                                            <span className={styles.thinking} role="status">
+                                                思考中…
+                                            </span>
+                                        ) : null}
+                                        {isEmptyAssistant && !streaming ? (
+                                            <span className={styles.emptyNote}>（未生成内容）</span>
+                                        ) : null}
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {status === 'error' && error ? (
+                <div className={styles.errorBanner} role="alert">
+                    {error}
+                </div>
+            ) : null}
+            {status === 'aborted' ? (
+                <div className={styles.abortedBanner} role="status">
+                    已停止生成，可继续发送新消息
+                </div>
+            ) : null}
+
+            <form className={styles.composer} onSubmit={handleSubmit}>
+                <input
+                    className={styles.input}
+                    type="text"
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    placeholder={isBusy ? '生成中…' : '输入你的需求，如「推荐免费的素材」'}
+                    aria-label="消息输入框"
+                    disabled={isBusy}
+                />
+                {isBusy ? (
+                    <button type="button" className={styles.stopButton} onClick={abort}>
+                        停止
+                    </button>
+                ) : (
+                    <button type="submit" className={styles.sendButton} disabled={!draft.trim()}>
+                        发送
+                    </button>
+                )}
+            </form>
+        </div>
+    );
+}

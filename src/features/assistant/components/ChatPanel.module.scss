@@ -1,0 +1,144 @@
+.panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    background: var(--color-bg-panel);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.messageList {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.placeholder {
+    margin: auto;
+    color: var(--color-text-secondary);
+    text-align: center;
+}
+
+.userRow,
+.assistantRow {
+    display: flex;
+}
+
+.userRow {
+    justify-content: flex-end;
+}
+
+.assistantRow {
+    justify-content: flex-start;
+}
+
+.userBubble,
+.assistantBubble {
+    max-width: 80%;
+    padding: var(--space-3) var(--space-4);
+    border-radius: 12px;
+    line-height: 1.6;
+    word-break: break-word;
+}
+
+.userBubble {
+    background: var(--color-accent);
+    color: var(--color-accent-contrast);
+    white-space: pre-wrap;
+}
+
+.assistantBubble {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.thinking,
+.emptyNote {
+    color: var(--color-text-secondary);
+    font-size: 0.85rem;
+}
+
+.errorBanner {
+    margin: 0 var(--space-4);
+    padding: var(--space-2) var(--space-3);
+    border-radius: 10px;
+    border: 1px solid #c84e4e;
+    background: #381f21;
+    color: #ffc4c4;
+    font-size: 0.9rem;
+}
+
+.abortedBanner {
+    margin: 0 var(--space-4);
+    padding: var(--space-2) var(--space-3);
+    border-radius: 10px;
+    border: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
+}
+
+.composer {
+    display: flex;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border-top: 1px solid var(--color-border);
+}
+
+.input {
+    flex: 1;
+    height: var(--control-height);
+    padding: 0 var(--space-3);
+    border-radius: 10px;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-card);
+    color: var(--color-text-primary);
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+.input:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+}
+
+.input:disabled {
+    opacity: 0.6;
+}
+
+.sendButton,
+.stopButton {
+    height: var(--control-height);
+    padding: 0 var(--space-4);
+    border-radius: 10px;
+    border: 1px solid transparent;
+    font-size: 1rem;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.sendButton {
+    background: var(--color-accent);
+    color: var(--color-accent-contrast);
+    font-weight: 600;
+}
+
+.sendButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.stopButton {
+    background: transparent;
+    border-color: #c84e4e;
+    color: #ffc4c4;
+}

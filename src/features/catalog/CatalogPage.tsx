@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import { EmptyState } from './components/EmptyState';
 import { ErrorState } from './components/ErrorState';
@@ -132,6 +132,9 @@ export function CatalogPage() {
                 <div className={[styles.headerInner, styles.container].join(' ')}>
                     <h1 className={styles.brandText}>CONNECT</h1>
                     <div className={styles.themeControl}>
+                        <Link to="/assistant" className={styles.assistantLink}>
+                            AI 导购
+                        </Link>
                         <ThemeToggle theme={theme} onToggle={toggleTheme} />
                     </div>
                 </div>

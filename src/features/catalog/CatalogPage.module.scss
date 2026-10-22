@@ -52,8 +52,20 @@
 .themeControl {
     display: flex;
     align-items: center;
+    gap: 16px;
     width: fit-content;
     flex-shrink: 0;
+}
+
+.assistantLink {
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    font-size: 0.95rem;
+    white-space: nowrap;
+}
+
+.assistantLink:hover {
+    color: var(--color-accent);
 }
 
 .controlStack {
