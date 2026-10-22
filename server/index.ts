@@ -1,6 +1,7 @@
 import { serve } from '@hono/node-server';
 import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
+import { chatApp } from './chat.js';
 import { env } from './env.js';
 
 const app = new Hono();
@@ -19,5 +20,7 @@ function healthHandler(c: Context) {
 
 app.get('/health', healthHandler);
 app.get('/api/health', healthHandler);
+
+app.route('/api', chatApp);
 
 serve({ fetch: app.fetch, port: env.port });
