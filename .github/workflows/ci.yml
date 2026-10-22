@@ -18,9 +18,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Install BFF dependencies
+        run: npm --prefix server ci
 
       - name: Lint
         run: npm run lint
@@ -30,3 +36,6 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Typecheck BFF
+        run: npm --prefix server run typecheck

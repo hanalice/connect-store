@@ -1,5 +1,5 @@
 {
-  "name": "connect-store-ttl-approval-experiment",
+  "name": "connect-store-bff",
   "private": true,
   "version": "1.0.0",
   "type": "module",
