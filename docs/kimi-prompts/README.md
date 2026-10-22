@@ -37,14 +37,18 @@ prompt_status: draft | ready | superseded
 
 ```bash
 # 单任务执行（推荐：内容注入，不依赖 agent 自己读文件）
-kimi -p "$(cat docs/kimi-prompts/G1.1.md)" -y
+kimi -p "$(cat docs/kimi-prompts/G1.2.md)"
 
 # 留日志（事后核对用）
-kimi -p "$(cat docs/kimi-prompts/G1.1.md)" -y 2>&1 | tee "/tmp/kimi-$(date +%F-%H%M)-G1.1.log"
+kimi -p "$(cat docs/kimi-prompts/G1.2.md)" 2>&1 | tee "/tmp/kimi-$(date +%F-%H%M)-G1.2.log"
 
 # 需要机器可解析的输出
-kimi -p "$(cat docs/kimi-prompts/G1.1.md)" -y --output-format stream-json
+kimi -p "$(cat docs/kimi-prompts/G1.2.md)" --output-format stream-json
 ```
+
+**`-p` 与 `-y` / `--auto` 互斥**（v2.2.0 实测报 `Cannot combine --prompt with --yolo`）：非交互模式自带执行策略，既不需要也不能叠加自动批准标志。实测 `-p` 模式下可正常创建/修改文件（沙箱验证：成功写入 `hello.txt`，16 字节）。
+
+**失败续跑**：`-p` 结束时终端会打印 `kimi -r session_<id>`，可用它继续同一会话，不必从头重跑。
 
 为什么用 `-p "$(cat ...)"` 而不是让 agent 自己读文件：读文件引入「只读前 N 行 / 跳读章节 / 忽略验收段」这类不可控风险；`-p` 把内容直接注入上下文，确定性最高（4 KB 级文件远低于 `ARG_MAX`）。
 
