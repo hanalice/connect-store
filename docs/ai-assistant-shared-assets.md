@@ -45,3 +45,29 @@
   catch 开头判 `currentController.signal !== signal` 则直接 return（旧代际不碰状态）；
   finally 里仅当还是自己时才清空。与存量 `useCatalogStore` 模式同源。
 - **代码位置**：`src/features/assistant/state/useAssistantStore.ts`
+
+## A5. Playwright mock BFF 受控流回放模式
+
+- **来源任务**：G1.4
+- **解决什么问题**：浏览器端流式 UI 的 E2E 需要断言「逐块增量渲染」的中间态，而
+  Playwright `route.fulfill` 一次性交付 body，中间态不可见；真实 LLM 又是不确定依赖，
+  不能进默认门禁。
+- **复用方式**：本地 mock BFF（8787 端口，纯 `node:http`，零依赖）作为 Playwright
+  `webServer` 拉起；按请求最后一条 user 消息文本里的场景标记（`__e2e_xxx__`）选择
+  固定帧序列下发受控 SSE（UIMessageChunk 帧 + `[DONE]` 哨兵）。
+  `reuseExistingServer: false` 防止端口被真实 BFF 占用时静默复用。G2+ 新增流类型
+  （tool call 等）时在 mock-bff.mjs 加场景函数即可。
+- **代码位置**：`e2e/mock-bff.mjs`、`playwright.config.ts`（webServer 配置）
+
+## A6. /\_\_release 闸门中间态断言法
+
+- **来源任务**：G1.4
+- **解决什么问题**：断言流式中间态若靠固定 sleep 赌时序会 flake；需要确定性地让流
+  「停在某一中间帧」供断言后再继续。
+- **复用方式**：受控流在首帧增量后 await 一个闸门 Promise；测试断言中间态后
+  `fetch('http://localhost:8787/__release')` 放行剩余帧，再断言终态与
+  `finalText.startsWith(midwayText)`。连接被客户端关闭（abort/teardown）时 waiter 自动
+  解除避免悬挂；需 `workers: 1` 避免跨用例闸门串扰。任何「先断言中间态再放行」的
+  流式 E2E 可照搬。
+- **代码位置**：`e2e/mock-bff.mjs`（waitForRelease / `/__release` 端点）、
+  `e2e/assistant.e2e.ts`（E2E-AI-02）
