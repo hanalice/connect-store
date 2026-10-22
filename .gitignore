@@ -32,3 +32,6 @@ Thumbs.db
 .agent-hub.lock
 AGENTS.md
 GEMINI.md
+
+# hermes 工具本地数据（外部同步，不要提交）
+.hermes/
