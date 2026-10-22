@@ -4,3 +4,5 @@ coverage
 build
 *.log
 .hermes
+playwright-report
+test-results

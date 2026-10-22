@@ -25,6 +25,10 @@ Thumbs.db
 *.swo
 *.tsbuildinfo
 
+# Playwright 产物
+playwright-report/
+test-results/
+
 # agent-hub 本机物化视图（由 init-project.sh 生成，不要提交）
 .agent-hub-assets/
 .agents/
