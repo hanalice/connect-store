@@ -98,3 +98,18 @@
   `vitest.config.ts`，其存在意义就是阻断向上查找，文件内注释写明原因防被当冗余删掉。
   两条均经 QA 实测证伪（去掉①根测试 38→67；去掉②子包测试全 FAIL）。
 - **代码位置**：`vite.config.ts`（test.exclude）、`server/vitest.config.ts`（空配置）
+
+## A9. 表驱动纯函数状态机模式（数据 / 执行分离 + 显式拒绝 + 注入时钟 + 环形日志）
+
+- **来源任务**：G2.2
+- **解决什么问题**：状态机逻辑若散落在条件分支里，新增状态/边时无法静态审计、无法断言
+  表规模；非法转换若静默吞掉，排查成本极高；含时间的日志逻辑用真实时钟无法确定性单测。
+- **复用方式**：`TRANSITIONS` 纯数据表与 `send()` 执行逻辑分离，加边只改表数据，单测遍历
+  表计数防施工期增删边；非法组合返回 `{state 不变, entry: null, rejected: true}` +
+  `console.warn`（文案含 state/event），绝不静默；`now` 时钟注入（默认 `Date.now`）使
+  `ts` 单调性可用假时钟逐条断言；日志环形缓冲 head+size 数组实现，`log` getter 输出
+  oldest→newest 只读视图，驱逐语义（第 201 条起 FIFO 踢最旧）可精确对照首条 entry。
+  任何后续需要"有限状态 + 审计日志"的纯逻辑层（审批 TTL、订单状态、registry 状态）
+  可直接照搬此骨架。
+- **代码位置**：`src/features/assistant/state/assistantMachine.ts`
+  （单测范例 `assistantMachine.test.ts`：UT-ASM-07 拒绝 / UT-ASM-08 环形缓冲）
