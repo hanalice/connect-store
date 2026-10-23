@@ -13,13 +13,14 @@
 
 ## 1. 快速回归命令
 
-| 场景             | 命令                                            | 覆盖                    | 耗时量级 | 门禁                   |
-| ---------------- | ----------------------------------------------- | ----------------------- | -------- | ---------------------- |
-| 单测 + 集成全量  | `npm test`                                      | vitest 6 文件 / 38 用例 | ~3s      | pre-commit ✅          |
-| E2E 全量（mock） | `npm run test:e2e`                              | E2E-AI-01~08            | ~7s      | 本地门禁（G4.1 入 CI） |
-| live 冒烟        | `npm run test:e2e:live`（先 `npm run dev:bff`） | E2E-AI-09               | ~6s      | 手动，不进 CI          |
-| E2E 单条定位     | `npx playwright test -g "E2E-AI-05"`            | 按编号 grep 标题        | —        | —                      |
-| vitest 单条定位  | `npx vitest run -t "INT-AI-02"`                 | 按编号 grep 标题        | —        | —                      |
+| 场景             | 命令                                            | 覆盖                    | 耗时量级 | 门禁                                   |
+| ---------------- | ----------------------------------------------- | ----------------------- | -------- | -------------------------------------- |
+| 单测 + 集成全量  | `npm test`                                      | vitest 6 文件 / 38 用例 | ~3s      | pre-commit ✅                          |
+| server 单测全量  | `cd server && npm test`                         | vitest 4 文件 / 29 用例 | ~1s      | 手动（是否入 pre-commit 由 G4.1 决策） |
+| E2E 全量（mock） | `npm run test:e2e`                              | E2E-AI-01~08            | ~7s      | 本地门禁（G4.1 入 CI）                 |
+| live 冒烟        | `npm run test:e2e:live`（先 `npm run dev:bff`） | E2E-AI-09               | ~6s      | 手动，不进 CI                          |
+| E2E 单条定位     | `npx playwright test -g "E2E-AI-05"`            | 按编号 grep 标题        | —        | —                                      |
+| vitest 单条定位  | `npx vitest run -t "INT-AI-02"`                 | 按编号 grep 标题        | —        | —                                      |
 
 ## 2. 用例总索引
 
@@ -46,6 +47,15 @@
 | A11Y-05            | ⬜   | G3.3（审批弹窗焦点）                                                    | 待实现                    |
 | ~~UT-RET-01 ~ 04~~ | 撤销 | v0.4 撤销语义检索（ADR D6 作废）                                        | 不实现                    |
 
+### 2.1b server 侧单测（vitest，`cd server && npm test`，G2.1 落地）
+
+| ID                    | 状态 | 位置与定位方式                                   | 备注                    |
+| --------------------- | ---- | ------------------------------------------------ | ----------------------- |
+| （数据层过滤）        | ✅   | `server/data/products.test.ts`（15 条）          | 标题未嵌编号，G4.1 统一 |
+| （searchCatalog）     | ✅   | `server/tools/searchCatalog.test.ts`（6 条）     | 标题未嵌编号，G4.1 统一 |
+| （addToCart）         | ✅   | `server/tools/addToCart.test.ts`（5 条）         | 标题未嵌编号，G4.1 统一 |
+| （getProductDetails） | ✅   | `server/tools/getProductDetails.test.ts`（3 条） | 标题未嵌编号，G4.1 统一 |
+
 ### 2.2 E2E（Playwright，`npm run test:e2e`）
 
 | ID             | 状态 | 位置                                                  | 门禁                   |
@@ -55,14 +65,14 @@
 
 ### 2.3 BFF / 安全契约（curl 验收，QA 每 G 执行）
 
-| ID        | 状态 | 所属 G                               | 验收方式                |
-| --------- | ---- | ------------------------------------ | ----------------------- |
-| API-AI-01 | ⬜   | G3.2                                 | curl（未审批拦截）      |
-| API-AI-02 | ⬜   | G2.1                                 | curl（单通道+价格区间） |
-| API-AI-03 | ⬜   | G1.4 已部分覆盖（error chunk / 502） | curl + E2E              |
-| API-AI-04 | ⬜   | G3.2                                 | curl（按 orderId 查询） |
-| API-AI-05 | ⬜   | G3.2                                 | curl（TTL 过期）        |
-| API-AI-06 | ⬜   | G3.2                                 | curl（伪造审批拦截）    |
+| ID        | 状态 | 所属 G                                               | 验收方式                |
+| --------- | ---- | ---------------------------------------------------- | ----------------------- |
+| API-AI-01 | ⬜   | G3.2                                                 | curl（未审批拦截）      |
+| API-AI-02 | ✅   | G2.1 已落地（报告 `docs/reports/G2.1.md` §二 #1–#9） | curl（单通道+价格区间） |
+| API-AI-03 | ⬜   | G1.4 已部分覆盖（error chunk / 502）                 | curl + E2E              |
+| API-AI-04 | ⬜   | G3.2                                                 | curl（按 orderId 查询） |
+| API-AI-05 | ⬜   | G3.2                                                 | curl（TTL 过期）        |
+| API-AI-06 | ⬜   | G3.2                                                 | curl（伪造审批拦截）    |
 
 ## 3. 使用约定
 

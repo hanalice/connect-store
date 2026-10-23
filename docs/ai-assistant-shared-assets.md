@@ -71,3 +71,30 @@
   流式 E2E 可照搬。
 - **代码位置**：`e2e/mock-bff.mjs`（waitForRelease / `/__release` 端点）、
   `e2e/assistant.e2e.ts`（E2E-AI-02）
+
+## A7. BFF 工具契约 dev 直调端点 + env 白名单模式
+
+- **来源任务**：G2.1
+- **解决什么问题**：工具层交付早于 `/api/chat` 工具回路（G2.3）时，curl 验收没有 HTTP 落点
+  物理上不可执行；同时直调端点若默认放开，会成为绕过 HITL 审批的调用面（未来 placeOrder）。
+- **复用方式**：工具注册表全项目唯一一份（dev 直调与 G2.3 工具回路共用，防两份定义漂移）；
+  直调白名单 = env `TOOLS_DIRECT_ALLOW`（逗号分隔 → trim → 去空串）∩ 注册表 key，默认空 =
+  生产语义（任何工具不可直调）；白名单外一律 404（与未知工具同行为，不暴露工具存在性）；
+  行为契约 = 400 + Zod issues（入参非法）/ 413（1 MB body 上限）/ 200 + 工具返回；
+  工具内部错误走 200 + `{error}` 字段（不静默 null，供 LLM 工具回路消费）。
+  审批门控工具（placeOrder）永不入白名单（目前为注释级约束，G3.2 须升级为验收项）。
+- **代码位置**：`server/index.ts`（`/api/tools/:toolName`）、`server/env.ts`
+  （`parseToolsDirectAllow`）、`server/tools/index.ts`（注册表）
+
+## A8. monorepo 外独立 package 的 vitest 隔离方案
+
+- **来源任务**：G2.1
+- **解决什么问题**：仓库内独立 package（如 `server/`，自己的 package.json / tsconfig / 测试）
+  会被根 vitest 默认 include 扫入（污染根测试基线），且子包内跑 vitest 会向上继承根
+  `vite.config.ts` 的 jsdom / setupFiles（直接跑挂）。
+- **复用方式**：两条配套——① 根 `vite.config.ts` 加
+  `test.exclude: [...configDefaults.exclude, '<子包>/**']`（注意保留 `configDefaults.exclude`，
+  不要整体覆盖默认排除）；② 子包放一个**空** `export default defineConfig({})` 的
+  `vitest.config.ts`，其存在意义就是阻断向上查找，文件内注释写明原因防被当冗余删掉。
+  两条均经 QA 实测证伪（去掉①根测试 38→67；去掉②子包测试全 FAIL）。
+- **代码位置**：`vite.config.ts`（test.exclude）、`server/vitest.config.ts`（空配置）
