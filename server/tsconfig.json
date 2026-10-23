@@ -11,7 +11,8 @@
     "verbatimModuleSyntax": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noUncheckedSideEffectImports": true
+    "noUncheckedSideEffectImports": true,
+    "resolveJsonModule": true
   },
-  "include": ["*.ts"]
+  "include": ["**/*.ts"]
 }

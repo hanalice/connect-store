@@ -6,3 +6,4 @@ build
 .hermes
 playwright-report
 test-results
+server/data/products.json

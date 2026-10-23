@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "tsx watch index.ts",
     "typecheck": "tsc --noEmit",
-    "test:ttl": "node ttl-approval-experiment.mjs"
+    "test": "vitest run",
+    "test:ttl": "node ttl-approval-experiment.mjs",
+    "export:snapshot": "node scripts/export-products.mjs"
   },
   "dependencies": {
     "@ai-sdk/deepseek": "^3.0.70",
@@ -19,6 +21,7 @@
   "devDependencies": {
     "@types/node": "^26.6.5",
     "tsx": "^4.23.15",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vitest": "^4.0.7"
   }
 }
