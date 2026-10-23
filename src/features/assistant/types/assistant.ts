@@ -1,7 +1,6 @@
 /**
  * 对话状态枚举：对齐 design §5 口径，G1.3 只使用子集。
- * G2.2 会在此枚举上补 tool_calling / tool_result / await_human / done 并引入转换表，
- * 不要自造新名字。
+ * 状态机事实源 = `state/assistantMachine.ts`（G2.2）：9 状态、12 事件与转换表在其中定义导出。
  */
 export type AssistantStatus = 'idle' | 'thinking' | 'streaming' | 'error' | 'aborted';
 
