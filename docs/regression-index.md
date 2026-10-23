@@ -15,7 +15,7 @@
 
 | 场景             | 命令                                            | 覆盖                    | 耗时量级 | 门禁                                   |
 | ---------------- | ----------------------------------------------- | ----------------------- | -------- | -------------------------------------- |
-| 单测 + 集成全量  | `npm test`                                      | vitest 6 文件 / 38 用例 | ~3s      | pre-commit ✅                          |
+| 单测 + 集成全量  | `npm test`                                      | vitest 7 文件 / 49 用例 | ~3s      | pre-commit ✅                          |
 | server 单测全量  | `cd server && npm test`                         | vitest 4 文件 / 29 用例 | ~1s      | 手动（是否入 pre-commit 由 G4.1 决策） |
 | E2E 全量（mock） | `npm run test:e2e`                              | E2E-AI-01~08            | ~7s      | 本地门禁（G4.1 入 CI）                 |
 | live 冒烟        | `npm run test:e2e:live`（先 `npm run dev:bff`） | E2E-AI-09               | ~6s      | 手动，不进 CI                          |
@@ -26,26 +26,26 @@
 
 ### 2.1 单元 / 集成（vitest，`npm test`，pre-commit 门禁）
 
-| ID                 | 状态 | 位置与定位方式                                                          | 备注                      |
-| ------------------ | ---- | ----------------------------------------------------------------------- | ------------------------- |
-| UT-01 ~ UT-23      | ✅   | `catalogSelectors.test.ts` 等；**标题未嵌编号**（存量），全量跑覆盖     | 存量 27 基线内            |
-| UT-STORE-01 ~ 03   | ✅   | 存量覆盖；标题未嵌编号                                                  | 存量 27 基线内            |
-| INT-01 ~ INT-17    | ✅   | `CatalogPage.test.tsx`；**INT-08~16 已嵌标题**可 `-t` 定位              | 存量 27 基线内            |
-| INT-AI-01          | ✅   | `chatApi.test.ts`（传输层受控流）+ E2E-AI-02 浏览器侧映射               | G1.3 / G1.4 落地          |
-| INT-AI-02          | ✅   | `useAssistantStore.test.ts`（标题嵌编号）+ E2E-AI-03 映射               | G1.3 / G1.4 落地          |
-| A11Y-01 / A11Y-02  | ✅   | `CatalogPage.test.tsx` 内 `A11Y: Verify basic landmark…` 一条           | 标题未嵌编号，grep `A11Y` |
-| A11Y-04            | ✅   | `StreamingText.tsx` aria-live + E2E-AI-02 断言                          | G1.3 / G1.4 落地          |
-| API-01 ~ API-03    | 🟡   | 存量隐含覆盖（无独立用例文件、标题无编号），G4.1 测试矩阵收口时核实口径 | 待核实                    |
-| A11Y-03            | 🟡   | 未明确对应用例，G4.1 核实                                               | 待核实                    |
-| UT-ASM-01 ~ 09     | ⬜   | G2.2（状态机转换表）                                                    | 待实现                    |
-| UT-REG-01 ~ 04     | ⬜   | G2.4（Generative UI registry 白名单）                                   | 待实现                    |
-| UT-CART-01 ~ 03    | ⬜   | G3.1（购物车 store）                                                    | 待实现                    |
-| INT-AI-03          | ⬜   | G2.3（ToolCallPanel）                                                   | 待实现                    |
-| INT-AI-04          | ⬜   | G2.4（registry 动态卡片）                                               | 待实现                    |
-| INT-AI-05          | ⬜   | G2.3（AgentStatusBadge 投影）                                           | 待实现                    |
-| INT-HITL-01 ~ 04   | ⬜   | G3.3（审批卡）                                                          | 待实现                    |
-| A11Y-05            | ⬜   | G3.3（审批弹窗焦点）                                                    | 待实现                    |
-| ~~UT-RET-01 ~ 04~~ | 撤销 | v0.4 撤销语义检索（ADR D6 作废）                                        | 不实现                    |
+| ID                 | 状态 | 位置与定位方式                                                          | 备注                                         |
+| ------------------ | ---- | ----------------------------------------------------------------------- | -------------------------------------------- |
+| UT-01 ~ UT-23      | ✅   | `catalogSelectors.test.ts` 等；**标题未嵌编号**（存量），全量跑覆盖     | 存量 27 基线内                               |
+| UT-STORE-01 ~ 03   | ✅   | 存量覆盖；标题未嵌编号                                                  | 存量 27 基线内                               |
+| INT-01 ~ INT-17    | ✅   | `CatalogPage.test.tsx`；**INT-08~16 已嵌标题**可 `-t` 定位              | 存量 27 基线内                               |
+| INT-AI-01          | ✅   | `chatApi.test.ts`（传输层受控流）+ E2E-AI-02 浏览器侧映射               | G1.3 / G1.4 落地                             |
+| INT-AI-02          | ✅   | `useAssistantStore.test.ts`（标题嵌编号）+ E2E-AI-03 映射               | G1.3 / G1.4 落地                             |
+| A11Y-01 / A11Y-02  | ✅   | `CatalogPage.test.tsx` 内 `A11Y: Verify basic landmark…` 一条           | 标题未嵌编号，grep `A11Y`                    |
+| A11Y-04            | ✅   | `StreamingText.tsx` aria-live + E2E-AI-02 断言                          | G1.3 / G1.4 落地                             |
+| API-01 ~ API-03    | 🟡   | 存量隐含覆盖（无独立用例文件、标题无编号），G4.1 测试矩阵收口时核实口径 | 待核实                                       |
+| A11Y-03            | 🟡   | 未明确对应用例，G4.1 核实                                               | 待核实                                       |
+| UT-ASM-01 ~ 09     | ✅   | `assistantMachine.test.ts`（标题嵌编号，`-t` 可定位）                   | G2.2 落地，11 用例（09 编号全覆盖 + 必含项） |
+| UT-REG-01 ~ 04     | ⬜   | G2.4（Generative UI registry 白名单）                                   | 待实现                                       |
+| UT-CART-01 ~ 03    | ⬜   | G3.1（购物车 store）                                                    | 待实现                                       |
+| INT-AI-03          | ⬜   | G2.3（ToolCallPanel）                                                   | 待实现                                       |
+| INT-AI-04          | ⬜   | G2.4（registry 动态卡片）                                               | 待实现                                       |
+| INT-AI-05          | ⬜   | G2.3（AgentStatusBadge 投影）                                           | 待实现                                       |
+| INT-HITL-01 ~ 04   | ⬜   | G3.3（审批卡）                                                          | 待实现                                       |
+| A11Y-05            | ⬜   | G3.3（审批弹窗焦点）                                                    | 待实现                                       |
+| ~~UT-RET-01 ~ 04~~ | 撤销 | v0.4 撤销语义检索（ADR D6 作废）                                        | 不实现                                       |
 
 ### 2.1b server 侧单测（vitest，`cd server && npm test`，G2.1 落地）
 
