@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 
+import { isAssistantBusy } from '../types/assistant';
 import { useAssistantStore } from '../state/useAssistantStore';
+import { AgentStatusBadge } from './AgentStatusBadge';
 import { ReasoningBlock } from './ReasoningBlock';
 import { StreamingText } from './StreamingText';
+import { ToolCallPanel } from './ToolCallPanel';
 import styles from './ChatPanel.module.scss';
 
 /** 距底部小于该阈值视为「用户在底部」，自动滚动才跟随（智能滚动阈值）。 */
@@ -13,8 +16,11 @@ export function ChatPanel() {
     const [draft, setDraft] = useState('');
     const listRef = useRef<HTMLDivElement | null>(null);
     const stickToBottomRef = useRef(true);
+    /** 上次 effect 吸附后的 scrollTop：用于识别「位置已变但 scroll 事件尚未派发」的竞态窗口。 */
+    const lastScrollTopRef = useRef(0);
 
-    const isBusy = status === 'thinking' || status === 'streaming';
+    // isBusy 四态口径（裁决②）：thinking / streaming / tool_calling / tool_result，对应 USER_ABORT 四条边
+    const isBusy = isAssistantBusy(status);
 
     // 智能自动滚动：滚动时记录用户是否在底部；上滑阅读后不抢滚动
     const handleScroll = () => {
@@ -26,9 +32,17 @@ export function ChatPanel() {
 
     useEffect(() => {
         const el = listRef.current;
-        if (el && stickToBottomRef.current) {
+        if (!el) return;
+        // scroll 事件派发存在延迟：位置已变（程序化滚动等）但 handleScroll 未跑时，
+        // 用实时位置复核吸附标记，避免把用户刚拉上去的列表又拽回底部（E2E-AI-05 竞态防护）
+        if (stickToBottomRef.current && el.scrollTop !== lastScrollTopRef.current) {
+            stickToBottomRef.current =
+                el.scrollHeight - el.scrollTop - el.clientHeight < STICK_THRESHOLD_PX;
+        }
+        if (stickToBottomRef.current) {
             el.scrollTop = el.scrollHeight;
         }
+        lastScrollTopRef.current = el.scrollTop;
     }, [messages, status]);
 
     const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -80,6 +94,7 @@ export function ChatPanel() {
                                             reasoning={message.reasoning}
                                             streaming={streaming}
                                         />
+                                        <ToolCallPanel toolCalls={message.toolCalls ?? []} />
                                         {message.text ? (
                                             <StreamingText
                                                 text={message.text}
@@ -112,6 +127,8 @@ export function ChatPanel() {
                     已停止生成，可继续发送新消息
                 </div>
             ) : null}
+
+            <AgentStatusBadge status={status} />
 
             <form className={styles.composer} onSubmit={handleSubmit}>
                 <input

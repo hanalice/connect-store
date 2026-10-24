@@ -143,3 +143,84 @@ test('E2E-AI-08 错误态-error chunk：流中推 error 帧 → 横幅显示上�
     await expect(assistantBubble(page)).toContainText('前半段内容');
     await expect(page.getByLabel('消息输入框')).toBeEnabled();
 });
+
+test('E2E-AI-10 工具卡实时显示：闸门停在执行中（工具名/参数/spinner）→ 成功 + 耗时 → 回复完成（INT-AI-03）', async ({
+    page,
+}) => {
+    await send(page, '__e2e_tool__');
+
+    // 放行至工具输入帧，闸门停在「执行中」：工具名 / 格式化参数 / spinner 态 / 不显示耗时
+    await fetch(`${MOCK_BFF_ORIGIN}/__release?gate=pre`);
+    const runningCard = page.locator('div[data-state="running"]');
+    await expect(runningCard).toBeVisible();
+    await expect(runningCard).toContainText('searchCatalog');
+    await expect(runningCard).toContainText('"pricingOption": 1');
+    await expect(runningCard).toContainText('执行中');
+    await expect(runningCard.getByText(/\d+ ms/)).toHaveCount(0);
+
+    // 放行输出帧：成功态 + 耗时出现 + 回复完成
+    await fetch(`${MOCK_BFF_ORIGIN}/__release?gate=post`);
+    const successCard = page.locator('div[data-state="success"]');
+    await expect(successCard).toBeVisible();
+    await expect(successCard).toContainText('成功');
+    await expect(successCard.getByText(/\d+ ms/)).toBeVisible();
+    await expect(assistantBubble(page)).toContainText('为你找到 1 个免费素材');
+    await expect(page.getByLabel('消息输入框')).toBeEnabled();
+});
+
+test('E2E-AI-11 状态投影序列：badge 随 thinking → tool_calling → tool_result → streaming → done 逐步变化（INT-AI-05）', async ({
+    page,
+}) => {
+    const badge = page.getByRole('status', { name: '助手状态' });
+    await expect(badge).toHaveText('待命');
+
+    await send(page, '__e2e_tool__');
+    // 闸门 pre 未放行：停在 thinking
+    await expect(badge).toHaveText('思考中');
+
+    await fetch(`${MOCK_BFF_ORIGIN}/__release?gate=pre`);
+    // 工具输入帧已下发、输出帧被闸门 post 拦住：停在 tool_calling
+    await expect(badge).toHaveText('调用工具');
+
+    await fetch(`${MOCK_BFF_ORIGIN}/__release?gate=post`);
+    // 输出帧与正文帧之间留有观察窗口，轮询断言中间投影
+    await expect
+        .poll(async () => badge.textContent(), { intervals: [20, 50, 100], timeout: 5_000 })
+        .toBe('工具结果');
+    await expect
+        .poll(async () => badge.textContent(), { intervals: [20, 50, 100], timeout: 5_000 })
+        .toBe('生成回复');
+    await expect(badge).toHaveText('已完成');
+    await expect(page.getByLabel('消息输入框')).toBeEnabled();
+});
+
+test('E2E-AI-12 工具执行中停止：aborted 提示、无 alert 错误横幅、输入恢复（INT-AI-02）', async ({
+    page,
+}) => {
+    await send(page, '__e2e_tool_hang__');
+    const runningCard = page.locator('div[data-state="running"]');
+    await expect(runningCard).toContainText('执行中');
+
+    await page.getByRole('button', { name: '停止' }).click();
+
+    // 取消 ≠ 失败：aborted 提示出现、无错误横幅、输入恢复
+    await expect(page.getByText('已停止生成，可继续发送新消息')).toBeVisible();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(page.getByLabel('消息输入框')).toBeEnabled();
+});
+
+test('E2E-AI-13 工具失败恢复：错误横幅含工具失败文案，再发新消息正常回复（error 恢复链路）', async ({
+    page,
+}) => {
+    await send(page, '__e2e_tool_error__');
+
+    await expect(page.getByRole('alert')).toContainText('工具调用失败');
+    await expect(page.getByRole('alert')).toContainText('catalog snapshot unavailable');
+    await expect(page.getByLabel('消息输入框')).toBeEnabled();
+
+    // error 后用户直接发新消息：RETRY → USER_SEND 恢复，正常走完一个回合
+    await send(page, '换个问题');
+    await expect(assistantBubble(page)).toContainText('你好，我是 AI 导购助手。');
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(page.getByLabel('消息输入框')).toBeEnabled();
+});

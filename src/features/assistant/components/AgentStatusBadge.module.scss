@@ -1,0 +1,40 @@
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 var(--space-4);
+    padding: 2px 0;
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+}
+
+.dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-border);
+}
+
+.busy .dot {
+    background: var(--color-accent);
+    animation: pulse 1.2s ease-in-out infinite;
+}
+
+.tool .dot {
+    background: #d8b24a;
+    animation: pulse 1.2s ease-in-out infinite;
+}
+
+.ok .dot {
+    background: #7bc87c;
+}
+
+.bad .dot {
+    background: #c84e4e;
+}
+
+@keyframes pulse {
+    50% {
+        opacity: 0.35;
+    }
+}

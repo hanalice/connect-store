@@ -9,14 +9,22 @@
  *   __e2e_reasoning__   reasoning + 正文，快速发完
  *   __e2e_long__        40 帧长文（50ms/帧），制造滚动溢出
  *   __e2e_error_chunk__ 部分正文后推 error chunk
+ *   __e2e_tool__        工具流（双命名闸门）：start → start-step → [闸门 pre] → tool-input-available
+ *                       → [闸门 post] → tool-output-available → 正文 → finish
+ *   __e2e_tool_hang__   工具流挂起：tool-input-available 后等客户端 abort 关闭连接
+ *   __e2e_tool_error__  工具失败：tool-input-available → tool-output-error → finish
  *   其他                 默认快速短回复
+ *
+ * 闸门：GET /__release 放行全部（存量行为）；GET /__release?gate=<name> 只放行命名闸门。
+ * 放行以「闸门名置位」实现（新 /api/chat 请求清空置位），release 先于 wait 到达也不会丢。
  */
 import http from 'node:http';
 
 const PORT = 8787;
 
-/** 闸门等待者：gated 场景停在第一帧增量后，/__release 一并放行。 */
+/** 闸门等待者与已置位闸门名：release 先到时 wait 立即通过；新对话请求重置置位。 */
 let releaseWaiters = [];
+const releasedGates = new Set();
 
 function writeFrame(res, frame) {
     res.write(`data: ${JSON.stringify(frame)}\n\n`);
@@ -39,10 +47,17 @@ function sseHead(res) {
     });
 }
 
-/** 等待放行；连接被客户端关闭（abort / 测试 teardown）时也解除，避免悬挂。 */
-function waitForRelease(res) {
+/**
+ * 等待放行；连接被客户端关闭（abort / 测试 teardown）时也解除，避免悬挂。
+ * 命名闸门（gate）：release 先于 wait 到达时靠 releasedGates 置位立即通过，不丢放行。
+ */
+function waitForRelease(res, gate = 'default') {
     return new Promise((resolve) => {
-        const waiter = { resolve };
+        if (releasedGates.has(gate) || releasedGates.has('*')) {
+            resolve();
+            return;
+        }
+        const waiter = { resolve, gate };
         releaseWaiters.push(waiter);
         res.on('close', () => {
             releaseWaiters = releaseWaiters.filter((w) => w !== waiter);
@@ -133,12 +148,77 @@ async function runDefault(res) {
     finishStream(res);
 }
 
+async function runTool(res) {
+    writeFrame(res, { type: 'start' });
+    writeFrame(res, { type: 'start-step' });
+    // 闸门 pre：stable 在 thinking（E2E-AI-11 投影序列断言点）
+    await waitForRelease(res, 'pre');
+    if (res.writableEnded) return;
+    writeFrame(res, {
+        type: 'tool-input-available',
+        toolCallId: 'call-1',
+        toolName: 'searchCatalog',
+        input: { query: '免费素材', pricingOption: 1 },
+    });
+    // 闸门 post：stable 在 tool_calling 执行中（E2E-AI-10 工具卡中间态断言点）
+    await waitForRelease(res, 'post');
+    if (res.writableEnded) return;
+    writeFrame(res, {
+        type: 'tool-output-available',
+        toolCallId: 'call-1',
+        output: { items: [{ id: 'p1', title: '免费素材 A' }], total: 1 },
+    });
+    // tool_result / streaming 观察窗口（E2E-AI-11 轮询步宽，远小于断言超时，确定性可见）
+    await sleep(500);
+    writeFrame(res, { type: 'text-start', id: 't1' });
+    await sleep(300);
+    writeFrame(res, { type: 'text-delta', id: 't1', delta: '为你找到 1 个免费素材' });
+    writeFrame(res, { type: 'text-end', id: 't1' });
+    writeFrame(res, { type: 'finish', finishReason: 'stop' });
+    finishStream(res);
+}
+
+async function runToolHang(res) {
+    writeFrame(res, { type: 'start' });
+    writeFrame(res, { type: 'start-step' });
+    writeFrame(res, {
+        type: 'tool-input-available',
+        toolCallId: 'call-hang',
+        toolName: 'searchCatalog',
+        input: { query: '挂起场景' },
+    });
+    // 永不结束：等停止按钮触发 abort 关闭连接
+    await new Promise((resolve) => res.on('close', resolve));
+}
+
+async function runToolError(res) {
+    writeFrame(res, { type: 'start' });
+    writeFrame(res, { type: 'start-step' });
+    writeFrame(res, {
+        type: 'tool-input-available',
+        toolCallId: 'call-error',
+        toolName: 'searchCatalog',
+        input: { query: '失败场景' },
+    });
+    await sleep(50);
+    writeFrame(res, {
+        type: 'tool-output-error',
+        toolCallId: 'call-error',
+        errorText: 'catalog snapshot unavailable',
+    });
+    writeFrame(res, { type: 'finish', finishReason: 'stop' });
+    finishStream(res);
+}
+
 function pickScenario(text) {
     if (text.includes('__e2e_gated__')) return runGated;
     if (text.includes('__e2e_hang__')) return runHang;
     if (text.includes('__e2e_reasoning__')) return runReasoning;
     if (text.includes('__e2e_long__')) return runLong;
     if (text.includes('__e2e_error_chunk__')) return runErrorChunk;
+    if (text.includes('__e2e_tool_hang__')) return runToolHang;
+    if (text.includes('__e2e_tool_error__')) return runToolError;
+    if (text.includes('__e2e_tool__')) return runTool;
     return runDefault;
 }
 
@@ -155,12 +235,22 @@ function extractUserText(raw) {
 }
 
 const server = http.createServer((req, res) => {
-    if (req.method === 'GET' && req.url === '/__release') {
-        const waiters = releaseWaiters;
-        releaseWaiters = [];
-        for (const waiter of waiters) waiter.resolve();
+    if (req.method === 'GET' && req.url.startsWith('/__release')) {
+        // 命名闸门：?gate=<name> 只放行对应闸门（置位防 release-先于-wait 丢失）；无参 = 放行全部（存量行为）
+        const gate = new URL(req.url, 'http://localhost').searchParams.get('gate');
+        let releasing;
+        if (gate === null) {
+            releasing = releaseWaiters;
+            releaseWaiters = [];
+            releasedGates.add('*');
+        } else {
+            releasedGates.add(gate);
+            releasing = releaseWaiters.filter((w) => w.gate === gate);
+            releaseWaiters = releaseWaiters.filter((w) => w.gate !== gate);
+        }
+        for (const waiter of releasing) waiter.resolve();
         res.writeHead(200, { 'Content-Type': 'text/plain' });
-        res.end(`released ${waiters.length}`);
+        res.end(`released ${releasing.length}`);
         return;
     }
     if (req.method === 'POST' && req.url === '/api/chat') {
@@ -169,6 +259,7 @@ const server = http.createServer((req, res) => {
             raw += chunk;
         });
         req.on('end', () => {
+            releasedGates.clear(); // 新对话请求重置闸门置位
             const scenario = pickScenario(extractUserText(raw));
             sseHead(res);
             scenario(res).catch(() => res.end());
