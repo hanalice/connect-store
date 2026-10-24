@@ -3,6 +3,7 @@ import {
     APICallError,
     convertToModelMessages,
     createUIMessageStreamResponse,
+    stepCountIs,
     streamText,
     toUIMessageStream,
     type UIMessage,
@@ -10,7 +11,9 @@ import {
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
+import { CHAT_SYSTEM_PROMPT } from './chat-prompt.js';
 import { env } from './env.js';
+import { toolRegistry } from './tools/index.js';
 
 /** 请求体上限 1 MB（design §8 安全项），超限返回 413。 */
 const MAX_BODY_BYTES = 1024 * 1024;
@@ -48,7 +51,7 @@ function logUpstreamError(error: unknown): void {
     console.error(`[chat] 上游模型服务错误: HTTP ${status ?? 'unknown'}`);
 }
 
-/** POST /api/chat：缺配置 503 → 结构校验 400 → streamText（无工具）输出官方 UI 消息流。 */
+/** POST /api/chat：缺配置 503 → 结构校验 400 → streamText（含 tools 工具回路）输出官方 UI 消息流。 */
 export const chatApp = new Hono().post(
     '/chat',
     bodyLimit({
@@ -80,6 +83,12 @@ export const chatApp = new Hono().post(
         const result = streamText({
             model: deepseek(env.llmModel),
             messages: await convertToModelMessages(parsed.data.messages as Omit<UIMessage, 'id'>[]),
+            // system prompt：角色 + Free/View Only 价格语义（G2.1 §五③）+ 工具使用约束
+            system: CHAT_SYSTEM_PROMPT,
+            // 工具回路：直接引用 G2.1 注册表（A7 唯一一份，禁止复制工具定义）；
+            // ai@7 streamText 默认 stopWhen=isStepCount(1) 不跑工具环，须显式放开步数
+            tools: toolRegistry,
+            stopWhen: stepCountIs(5),
             timeout: UPSTREAM_TIMEOUT_MS,
             onError: ({ error }) => {
                 logUpstreamError(error);
