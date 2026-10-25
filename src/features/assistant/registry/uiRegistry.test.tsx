@@ -140,11 +140,23 @@ describe('uiRegistry 白名单分发', () => {
         expect(screen.getByText('product not found')).toBeInTheDocument();
     });
 
-    it('分支：tool-placeOrder → ApprovalCard 静态占位（形态锁定：占位文案 + 禁用按钮）', () => {
-        render(renderToolOutput({ toolName: 'placeOrder', output: {} }));
-        expect(screen.getByText('审批功能即将上线')).toBeInTheDocument();
-        const button = screen.getByRole('button', { name: '确认下单（即将上线）' });
-        expect(button).toBeDisabled();
+    it('分支：tool-placeOrder 执行回执 → OrderResultCard（G3.3：订单号 / 实付金额 / 单号）', () => {
+        render(
+            renderToolOutput({
+                toolName: 'placeOrder',
+                output: { orderId: 'ord-e2e-1', orderNumber: 'order-e2e0001', amount: 25 },
+            }),
+        );
+        expect(screen.getByTestId('order-result-card')).toBeInTheDocument();
+        expect(screen.getByText('订单号：order-e2e0001')).toBeInTheDocument();
+        expect(screen.getByText('实付金额：$25.00')).toBeInTheDocument();
+        expect(screen.getByText('单号 ord-e2e-1')).toBeInTheDocument();
+    });
+
+    it('分支：tool-placeOrder 输出体内 error 回执 → ToolError 卡片（未执行分流）', () => {
+        render(renderToolOutput({ toolName: 'placeOrder', output: { error: 'order is pending' } }));
+        expect(screen.getByText('工具执行失败')).toBeInTheDocument();
+        expect(screen.getByText('order is pending')).toBeInTheDocument();
     });
 
     it('分支：tool-addToCart 成功回执 → CartConfirmCard（G3.1：件数 / 标题 / 小计）', () => {

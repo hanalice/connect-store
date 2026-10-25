@@ -17,6 +17,12 @@
  *   __e2e_tool_error__  工具失败：tool-input-available → tool-output-error → finish
  *   __e2e_cart__        加购流（G3.1）：tool-input-available(addToCart) → [闸门 cart] →
  *                       tool-output-available({ productId, quantity, product }) → 正文 → finish
+ *   __e2e_order__       订单审批流（G3.3，有状态分流）：首请求 → 正文 + tool-input-available(placeOrder)
+ *                       + tool-approval-request → 停驻 await_human（流结束，hang but safe）；
+ *                       第二请求按消息体分流 —— approval-responded part（approved:true → 执行回执
+ *                       + 订单号文本；approved:false → tool-output-denied + 修正文本）；
+ *                       新 toolCall part（input-available）→ 新 tool-input-available +
+ *                       新 tool-approval-request（新审批挂起）
  *   其他                 默认快速短回复
  *
  * 闸门：GET /__release 放行全部（存量行为）；GET /__release?gate=<name> 只放行命名闸门。
@@ -314,7 +320,143 @@ async function runCart(res) {
     finishStream(res);
 }
 
-function pickScenario(text) {
+/** 订单审批场景帧数据（G3.3）：商品与既有 __e2e_cart__ 夹具不重叠，E2E 路由目录快照后卡内可解析标题/现价。 */
+const ORDER_ITEMS = [
+    { productId: 'p-order-1', quantity: 1 },
+    { productId: 'p-order-2', quantity: 2 },
+];
+
+/** 首请求：正文 → placeOrder 工具调用 → 审批请求（帧后流结束：审批挂起即停步，不自动续跑）。 */
+async function runOrderInitial(res) {
+    writeFrame(res, { type: 'start' });
+    writeFrame(res, { type: 'start-step' });
+    writeFrame(res, { type: 'text-start', id: 't1' });
+    await sleep(50);
+    writeFrame(res, { type: 'text-delta', id: 't1', delta: '已为你选好 2 件商品，请确认订单。' });
+    writeFrame(res, { type: 'text-end', id: 't1' });
+    writeFrame(res, {
+        type: 'tool-input-available',
+        toolCallId: 'call-order-1',
+        toolName: 'placeOrder',
+        input: { items: ORDER_ITEMS },
+    });
+    writeFrame(res, {
+        type: 'tool-approval-request',
+        approvalId: 'appr-e2e-1',
+        toolCallId: 'call-order-1',
+        reason: 'placeOrder requires approval',
+        signature: 'e2e-sig-1',
+    });
+    writeFrame(res, { type: 'finish', finishReason: 'tool-calls' });
+    finishStream(res);
+}
+
+/** approve 续流：执行回执（订单号，按 toolCallId 回显）→ 观察窗口 → 完成文本。 */
+async function runOrderApproved(res, toolCallId) {
+    const edit = toolCallId !== 'call-order-1';
+    writeFrame(res, { type: 'start' });
+    writeFrame(res, { type: 'start-step' });
+    // 观察窗口：badge 停在「调用工具」（APPROVE → tool_calling 投影断言点）
+    await sleep(300);
+    writeFrame(res, {
+        type: 'tool-output-available',
+        toolCallId,
+        output: edit
+            ? { orderId: 'ord-e2e-2', orderNumber: 'order-e2e0002', amount: 7.5 }
+            : { orderId: 'ord-e2e-1', orderNumber: 'order-e2e0001', amount: 25 },
+    });
+    // tool_result / streaming 观察窗口（badge 序列断言点，对齐 runTool 窗口口径）
+    await sleep(400);
+    // 观察窗口：badge 停在「生成回复」（streaming 投影断言点）
+    await sleep(300);
+    writeFrame(res, { type: 'text-start', id: 't2' });
+    await sleep(300);
+    writeFrame(res, {
+        type: 'text-delta',
+        id: 't2',
+        delta: edit
+            ? '订单已提交！订单号 order-e2e0002，合计 $7.50。'
+            : '订单已提交！订单号 order-e2e0001，合计 $25.00。',
+    });
+    writeFrame(res, { type: 'text-end', id: 't2' });
+    writeFrame(res, { type: 'finish', finishReason: 'stop' });
+    finishStream(res);
+}
+
+/** reject 续流：deny 帧（execution-denied）→ 观察窗口 → 修正方案文本。 */
+async function runOrderDenied(res) {
+    writeFrame(res, { type: 'start' });
+    writeFrame(res, { type: 'start-step' });
+    writeFrame(res, { type: 'tool-output-denied', toolCallId: 'call-order-1' });
+    await sleep(400);
+    writeFrame(res, { type: 'text-start', id: 't2' });
+    writeFrame(res, {
+        type: 'text-delta',
+        id: 't2',
+        delta: '明白，用户觉得太贵了。推荐免费的替代商品：免费素材 Alpha。',
+    });
+    writeFrame(res, { type: 'text-end', id: 't2' });
+    writeFrame(res, { type: 'finish', finishReason: 'stop' });
+    finishStream(res);
+}
+
+/**
+ * edit 续流：服务端按新 toolCall 重新签发审批（新 toolCall 先登记、再挂起）——
+ * 第二请求里新 toolCallId / 修改后 items 原样回显。
+ */
+async function runOrderEdit(res, toolPart) {
+    writeFrame(res, { type: 'start' });
+    writeFrame(res, { type: 'start-step' });
+    writeFrame(res, {
+        type: 'tool-input-available',
+        toolCallId: toolPart.toolCallId,
+        toolName: 'placeOrder',
+        input: toolPart.input,
+    });
+    writeFrame(res, {
+        type: 'tool-approval-request',
+        approvalId: 'appr-e2e-2',
+        toolCallId: toolPart.toolCallId,
+        reason: 'placeOrder requires approval',
+        signature: 'e2e-sig-2',
+    });
+    writeFrame(res, { type: 'finish', finishReason: 'tool-calls' });
+    finishStream(res);
+}
+
+/** 从请求体取所有 assistant 消息的工具 part（G3.3 回放分流用）。 */
+function extractToolParts(raw) {
+    try {
+        const body = JSON.parse(raw);
+        return (body.messages ?? [])
+            .filter((m) => m.role === 'assistant')
+            .flatMap((m) =>
+                (m.parts ?? []).filter(
+                    (p) => typeof p.type === 'string' && p.type.startsWith('tool-'),
+                ),
+            );
+    } catch {
+        return [];
+    }
+}
+
+/** __e2e_order__ 有状态分流：按第二请求内容分 approved / denied / 新 toolCall 三支续流。 */
+function runOrderScenario(res, raw) {
+    const toolParts = extractToolParts(raw);
+    const responded = toolParts.find((p) => p.state === 'approval-responded');
+    if (responded !== undefined) {
+        return responded.approval?.approved === true
+            ? runOrderApproved(res, responded.toolCallId)
+            : runOrderDenied(res);
+    }
+    const freshCall = toolParts.find((p) => p.state === 'input-available');
+    if (freshCall !== undefined) {
+        return runOrderEdit(res, freshCall);
+    }
+    return runOrderInitial(res);
+}
+
+function pickScenario(text, raw) {
     if (text.includes('__e2e_gated__')) return runGated;
     if (text.includes('__e2e_hang__')) return runHang;
     if (text.includes('__e2e_reasoning__')) return runReasoning;
@@ -325,6 +467,7 @@ function pickScenario(text) {
     if (text.includes('__e2e_tool_ui__')) return runToolUi;
     if (text.includes('__e2e_tool_unknown__')) return runToolUnknown;
     if (text.includes('__e2e_cart__')) return runCart;
+    if (text.includes('__e2e_order__')) return (res) => runOrderScenario(res, raw);
     if (text.includes('__e2e_tool__')) return runTool;
     return runDefault;
 }
@@ -367,7 +510,7 @@ const server = http.createServer((req, res) => {
         });
         req.on('end', () => {
             releasedGates.clear(); // 新对话请求重置闸门置位
-            const scenario = pickScenario(extractUserText(raw));
+            const scenario = pickScenario(extractUserText(raw), raw);
             sseHead(res);
             scenario(res).catch(() => res.end());
         });

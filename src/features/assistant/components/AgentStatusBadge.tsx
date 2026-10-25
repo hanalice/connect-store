@@ -8,7 +8,7 @@ interface StateProjection {
     tone: BadgeTone;
 }
 
-/** 9 态静态投影（裁决②/③）：await_human 本 G 不可达，映射先行定义，交互验证留 G3.3。 */
+/** 9 态静态投影（裁决②/③）：await_human 经 G3.3 审批接线首次真实可达（APPROVAL_REQUEST 边）。 */
 const STATE_PROJECTION: Record<AssistantState, StateProjection> = {
     idle: { label: '待命', tone: 'idle' },
     thinking: { label: '思考中', tone: 'busy' },

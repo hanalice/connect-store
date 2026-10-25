@@ -546,3 +546,355 @@ describe('useAssistantStore', () => {
         expect(useCartStore.getState().isOpen).toBe(false);
     });
 });
+
+/** G3.3 审批接线测试用的 placeOrder 帧序列（镜像 ai@7 帧字段，裁决④类型核对结论）。 */
+const ORDER_INPUT_RAW = {
+    items: [
+        { productId: 'p-order-1', quantity: 1 },
+        { productId: 'p-order-2', quantity: 2 },
+    ],
+};
+const ORDER_INPUT = {
+    type: 'tool-input-available',
+    toolCallId: 'call-order-1',
+    toolName: 'placeOrder',
+    input: ORDER_INPUT_RAW,
+} as UIMessageChunk;
+const ORDER_APPROVAL = {
+    type: 'tool-approval-request',
+    approvalId: 'appr-1',
+    toolCallId: 'call-order-1',
+    reason: 'placeOrder requires approval',
+    signature: 'sig-1',
+} as UIMessageChunk;
+/** 首回合：正文 → 下单工具调用 → 审批请求（hang but safe：帧后流即结束）。 */
+const ORDER_ROUND = [
+    { type: 'text-start', id: 't1' },
+    { type: 'text-delta', id: 't1', delta: '已为你选好商品，请确认订单。' },
+    { type: 'text-end', id: 't1' },
+    ORDER_INPUT,
+    ORDER_APPROVAL,
+    { type: 'finish', finishReason: 'tool-calls' },
+] as UIMessageChunk[];
+
+/** 首回合跑到 await_human + approval pending（审批卡可操作态）。 */
+async function reachAwaitHuman() {
+    streamChunks(ORDER_ROUND);
+    await useAssistantStore.getState().sendMessage('帮我下单');
+    expect(useAssistantStore.getState().status).toBe('await_human');
+    expect(useAssistantStore.getState().approval).toMatchObject({
+        approvalId: 'appr-1',
+        toolCallId: 'call-order-1',
+        toolName: 'placeOrder',
+        signature: 'sig-1',
+        requestReason: 'placeOrder requires approval',
+        phase: 'pending',
+    });
+}
+
+describe('useAssistantStore G3.3 审批接线（裁决③④⑤）', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        localStorage.clear();
+        useCartStore.setState({ items: [], isOpen: false });
+        useAssistantStore.getState().reset();
+    });
+
+    it('tool-approval-request 帧 → APPROVAL_REQUEST 事件 + await_human 投影 + 审批数据落状态（含 TTL 推导）', async () => {
+        await reachAwaitHuman();
+
+        const { approval } = useAssistantStore.getState();
+        expect(approval).not.toBeNull();
+        expect(approval!.items).toEqual([
+            { productId: 'p-order-1', quantity: 1 },
+            { productId: 'p-order-2', quantity: 2 },
+        ]);
+        // 帧无 expiresAt：客户端推导 = 收帧时刻 + APPROVAL_TTL_MS（300_000，server 同口径）
+        expect(approval!.expiresAt - approval!.requestedAt).toBe(300_000);
+        expect(Date.now() - approval!.requestedAt).toBeLessThan(5_000);
+
+        const machine = mockCreateMachine.mock.results[0]?.value;
+        expect(machine.state).toBe('await_human');
+        // 裁决⑥表缺口：streaming + TOOL_CALL 不在表内（模型先正文后调工具）——
+        // 查表静默跳过（无 TOOL_CALL 日志 entry），工具卡照常登记，APPROVAL_REQUEST 从 streaming 合法出边
+        expect(machine.log.map((entry: { event: string }) => entry.event)).toEqual([
+            'USER_SEND',
+            'STREAM_START',
+            'APPROVAL_REQUEST',
+        ]);
+        expect(machine.log[2]).toMatchObject({ from: 'streaming', to: 'await_human' });
+    });
+
+    it('await_human 期间发送新消息被拒（输入由审批卡承接，防表缺口死锁）', async () => {
+        await reachAwaitHuman();
+        await useAssistantStore.getState().sendMessage('换个话题');
+        expect(mockStreamChat).toHaveBeenCalledTimes(1);
+        expect(useAssistantStore.getState().status).toBe('await_human');
+    });
+
+    it('approve → APPROVE 事件（→tool_calling）+ 回放 part（approved + 签名回环）→ 订单回执 → done（INT-HITL-01）', async () => {
+        await reachAwaitHuman();
+
+        // 回放响应：执行回执 + 订单号文本
+        mockStreamChat.mockImplementation(async ({ onChunk }: StreamChatOptions) => {
+            onChunk({
+                type: 'tool-output-available',
+                toolCallId: 'call-order-1',
+                output: { orderId: 'ord-1', orderNumber: 'order-test01', amount: 25 },
+            } as UIMessageChunk);
+            onChunk({ type: 'text-start', id: 't2' } as UIMessageChunk);
+            onChunk({
+                type: 'text-delta',
+                id: 't2',
+                delta: '订单已提交，订单号 order-test01，合计 $25.00。',
+            } as UIMessageChunk);
+            onChunk({ type: 'text-end', id: 't2' } as UIMessageChunk);
+            onChunk({ type: 'finish', finishReason: 'stop' } as UIMessageChunk);
+        });
+        useAssistantStore.getState().approve();
+        expect(useAssistantStore.getState().approval?.phase).toBe('approved');
+
+        await vi.waitFor(() => {
+            expect(useAssistantStore.getState().status).toBe('done');
+        });
+
+        // 回放请求体：历史 + 目标 assistant 消息含 approval-responded part（approved + 签名回环）
+        expect(mockStreamChat).toHaveBeenCalledTimes(2);
+        const replayMessages = mockStreamChat.mock.calls[1][0].messages;
+        expect(replayMessages[1].parts[1]).toEqual({
+            type: 'tool-placeOrder',
+            toolCallId: 'call-order-1',
+            state: 'approval-responded',
+            input: ORDER_INPUT_RAW,
+            approval: {
+                id: 'appr-1',
+                approved: true,
+                requestReason: 'placeOrder requires approval',
+                signature: 'sig-1',
+            },
+        });
+
+        const state = useAssistantStore.getState();
+        // 订单回执落在发起审批的旧消息工具卡上（全局按 toolCallId 补登）
+        expect(state.messages[1]?.toolCalls?.[0]?.output).toMatchObject({
+            orderNumber: 'order-test01',
+            amount: 25,
+        });
+        expect(state.messages[2]?.text).toContain('order-test01');
+
+        const machine = mockCreateMachine.mock.results[0]?.value;
+        expect(machine.state).toBe('done');
+        expect(machine.log.map((entry: { event: string }) => entry.event)).toEqual([
+            'USER_SEND',
+            'STREAM_START',
+            'APPROVAL_REQUEST',
+            'APPROVE',
+            'TOOL_RESULT',
+            'STREAM_START',
+            'STREAM_END',
+        ]);
+        expect(machine.log[3]).toMatchObject({ from: 'await_human', to: 'tool_calling' });
+    });
+
+    it('reject(reason) → REJECT 事件（→thinking）+ 回放 part 携带 reason + tool-output-denied 落卡 + 修正文本（INT-HITL-02）', async () => {
+        await reachAwaitHuman();
+
+        // 回放响应：deny（execution-denied 的 UI 帧）+ 修正方案文本
+        mockStreamChat.mockImplementation(async ({ onChunk }: StreamChatOptions) => {
+            onChunk({
+                type: 'tool-output-denied',
+                toolCallId: 'call-order-1',
+                toolName: 'placeOrder',
+            } as UIMessageChunk);
+            onChunk({ type: 'text-start', id: 't2' } as UIMessageChunk);
+            onChunk({
+                type: 'text-delta',
+                id: 't2',
+                delta: '明白，用户觉得太贵了。推荐免费的替代商品：免费素材 Alpha。',
+            } as UIMessageChunk);
+            onChunk({ type: 'text-end', id: 't2' } as UIMessageChunk);
+            onChunk({ type: 'finish', finishReason: 'stop' } as UIMessageChunk);
+        });
+        useAssistantStore.getState().reject('太贵了');
+        expect(useAssistantStore.getState().approval).toMatchObject({
+            phase: 'rejected',
+            decisionReason: '太贵了',
+        });
+
+        await vi.waitFor(() => {
+            expect(useAssistantStore.getState().status).toBe('done');
+        });
+
+        const replayMessages = mockStreamChat.mock.calls[1][0].messages;
+        expect(replayMessages[1].parts[1]).toMatchObject({
+            type: 'tool-placeOrder',
+            state: 'approval-responded',
+            approval: { id: 'appr-1', approved: false, reason: '太贵了' },
+        });
+
+        const state = useAssistantStore.getState();
+        // deny 帧落工具卡（deniedReason），修正文本落在回放的新 assistant 消息
+        expect(state.messages[1]?.toolCalls?.[0]?.deniedReason).toBe('太贵了');
+        expect(state.messages[2]?.text).toContain('免费的替代商品');
+
+        const machine = mockCreateMachine.mock.results[0]?.value;
+        expect(machine.log.map((entry: { event: string }) => entry.event)).toEqual([
+            'USER_SEND',
+            'STREAM_START',
+            'APPROVAL_REQUEST',
+            'REJECT',
+            'STREAM_START',
+            'STREAM_END',
+        ]);
+        expect(machine.log[3]).toMatchObject({ from: 'await_human', to: 'thinking' });
+        expect(machine.log[4]).toMatchObject({ from: 'thinking', to: 'streaming' });
+    });
+
+    it('editOrder → EDIT 事件（→tool_calling）+ 新 toolCall 重发（不发审批响应）→ 新审批请求替换旧卡（INT-HITL-03）', async () => {
+        await reachAwaitHuman();
+
+        // 回放响应：服务端按新 toolCall 重新签发审批（新 toolCall 先登记，再挂起）
+        mockStreamChat.mockImplementation(async ({ onChunk }: StreamChatOptions) => {
+            onChunk({
+                type: 'tool-input-available',
+                toolCallId: 'call-edit-1',
+                toolName: 'placeOrder',
+                input: { items: [{ productId: 'p-order-2', quantity: 1 }] },
+            } as UIMessageChunk);
+            onChunk({
+                type: 'tool-approval-request',
+                approvalId: 'appr-2',
+                toolCallId: 'call-edit-1',
+                reason: 'placeOrder requires approval',
+                signature: 'sig-2',
+            } as UIMessageChunk);
+            onChunk({ type: 'finish', finishReason: 'tool-calls' } as UIMessageChunk);
+        });
+        useAssistantStore.getState().editOrder([{ productId: 'p-order-2', quantity: 1 }]);
+
+        await vi.waitFor(() => {
+            expect(useAssistantStore.getState().status).toBe('await_human');
+        });
+
+        // 回放请求体：新 toolCall part（新 toolCallId + 修改后 items），无审批响应 part
+        const replayMessages = mockStreamChat.mock.calls[1][0].messages;
+        expect(replayMessages[1].parts[1]).toEqual({
+            type: 'tool-placeOrder',
+            toolCallId: 'call-edit-1',
+            state: 'input-available',
+            input: { items: [{ productId: 'p-order-2', quantity: 1 }] },
+        });
+        expect(JSON.stringify(replayMessages)).not.toContain('approval-responded');
+
+        // 新审批卡替换旧卡：approval 状态整体换新；旧卡失效提示落 approvalSuperseded
+        const oldMessageId = useAssistantStore.getState().messages[1]?.id;
+        expect(useAssistantStore.getState().approvalSuperseded).toEqual({
+            messageId: oldMessageId,
+            note: '已修改并重新发起',
+        });
+        expect(useAssistantStore.getState().approval).toMatchObject({
+            approvalId: 'appr-2',
+            toolCallId: 'call-edit-1',
+            signature: 'sig-2',
+            items: [{ productId: 'p-order-2', quantity: 1 }],
+            phase: 'pending',
+        });
+
+        const machine = mockCreateMachine.mock.results[0]?.value;
+        // 表缺口（裁决⑥）：tool_calling + TOOL_CALL / APPROVAL_REQUEST 不在表内——
+        // 查表静默跳过（无日志 entry），store 兜底直设 await_human
+        expect(machine.log.map((entry: { event: string }) => entry.event)).toEqual([
+            'USER_SEND',
+            'STREAM_START',
+            'APPROVAL_REQUEST',
+            'EDIT',
+        ]);
+        expect(machine.state).toBe('tool_calling'); // machine 滞留，store 兜底 await_human
+        expect(useAssistantStore.getState().status).toBe('await_human');
+    });
+
+    it('edit 重发后的新卡 approve（machine 表缺口路径）：事件查表跳过但回放继续 → 执行回执 → done', async () => {
+        await reachAwaitHuman();
+        // 第一轮回放到 edit 重发（machine 滞留 tool_calling 缺口）
+        mockStreamChat.mockImplementationOnce(async ({ onChunk }: StreamChatOptions) => {
+            onChunk({
+                type: 'tool-input-available',
+                toolCallId: 'call-edit-1',
+                toolName: 'placeOrder',
+                input: { items: [{ productId: 'p-order-2', quantity: 1 }] },
+            } as UIMessageChunk);
+            onChunk({
+                type: 'tool-approval-request',
+                approvalId: 'appr-2',
+                toolCallId: 'call-edit-1',
+                signature: 'sig-2',
+            } as UIMessageChunk);
+            onChunk({ type: 'finish', finishReason: 'tool-calls' } as UIMessageChunk);
+        });
+        useAssistantStore.getState().editOrder([{ productId: 'p-order-2', quantity: 1 }]);
+        await vi.waitFor(() => {
+            expect(useAssistantStore.getState().status).toBe('await_human');
+        });
+
+        // 第二轮回放：新卡 approve —— machine 滞留 tool_calling（APPROVE 查表跳过），action 继续
+        mockStreamChat.mockImplementationOnce(async ({ onChunk }: StreamChatOptions) => {
+            onChunk({
+                type: 'tool-output-available',
+                toolCallId: 'call-edit-1',
+                output: { orderId: 'ord-2', orderNumber: 'order-edit02', amount: 7.5 },
+            } as UIMessageChunk);
+            onChunk({ type: 'text-start', id: 't3' } as UIMessageChunk);
+            onChunk({
+                type: 'text-delta',
+                id: 't3',
+                delta: '订单已提交，订单号 order-edit02。',
+            } as UIMessageChunk);
+            onChunk({ type: 'text-end', id: 't3' } as UIMessageChunk);
+            onChunk({ type: 'finish', finishReason: 'stop' } as UIMessageChunk);
+        });
+        useAssistantStore.getState().approve();
+        expect(useAssistantStore.getState().approval?.phase).toBe('approved');
+
+        await vi.waitFor(() => {
+            expect(useAssistantStore.getState().status).toBe('done');
+        });
+
+        // 回放帧从 machine 滞留态 tool_calling 合法出边恢复：TOOL_RESULT → STREAM_START → STREAM_END
+        const machine = mockCreateMachine.mock.results[0]?.value;
+        expect(machine.log.map((entry: { event: string }) => entry.event)).toEqual([
+            'USER_SEND',
+            'STREAM_START',
+            'APPROVAL_REQUEST',
+            'EDIT',
+            'TOOL_RESULT',
+            'STREAM_START',
+            'STREAM_END',
+        ]);
+        expect(machine.state).toBe('done');
+        expect(useAssistantStore.getState().messages.at(-1)?.text).toContain('order-edit02');
+    });
+
+    it('取消订单（cancelOrder）→ await_human + USER_ABORT → aborted 停驻 + 审批 cancelled + 无回放（裁决⑤）', async () => {
+        await reachAwaitHuman();
+
+        useAssistantStore.getState().cancelOrder();
+        expect(useAssistantStore.getState().status).toBe('aborted');
+        expect(useAssistantStore.getState().approval?.phase).toBe('cancelled');
+        // 取消不发回放：仅首回合一次请求；订单未执行（无 tool-output 帧）
+        expect(mockStreamChat).toHaveBeenCalledTimes(1);
+
+        const machine = mockCreateMachine.mock.results[0]?.value;
+        expect(machine.state).toBe('aborted');
+        const last = machine.log[machine.log.length - 1];
+        expect(last).toMatchObject({ from: 'await_human', to: 'aborted', event: 'USER_ABORT' });
+    });
+
+    it('abort 在 await_human 直接可用（只增不改纳入 await_human，裁决⑤）：停驻 aborted + 审批 cancelled', async () => {
+        await reachAwaitHuman();
+
+        useAssistantStore.getState().abort();
+        expect(useAssistantStore.getState().status).toBe('aborted');
+        expect(useAssistantStore.getState().approval?.phase).toBe('cancelled');
+        expect(mockStreamChat).toHaveBeenCalledTimes(1);
+    });
+});

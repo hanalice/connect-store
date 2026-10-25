@@ -1,6 +1,6 @@
 import { parseJsonEventStream, uiMessageChunkSchema, type UIMessageChunk } from 'ai';
 
-import type { ChatRequestMessage } from '../types/assistant';
+import type { ChatMessage, ChatRequestMessage, ChatRequestPart } from '../types/assistant';
 
 /** 传输层错误分类：网络失败 / 非 2xx / 流中途异常，供 UI 区分文案。 */
 export type ChatApiErrorKind = 'network' | 'http' | 'stream';
@@ -20,6 +20,101 @@ export class ChatApiError extends Error {
 
 function isAbortError(error: unknown): boolean {
     return error instanceof DOMException && error.name === 'AbortError';
+}
+
+/**
+ * 审批回放的目标 toolCall 上下文（G3.3 裁决④）：toolName / input 从已登记 toolCall 取
+ * （tool-approval-request 帧不带 toolName；签名按 toolName + toolCallId + input 校验，
+ * 回放必须原样回传）。approval 元数据从请求帧原样回环（signature 缺失会被 SDK 拒，API-AI-06）。
+ */
+export interface ApprovalReplayTarget {
+    messageId: string;
+    toolCallId: string;
+    toolName: string;
+    input: unknown;
+    approvalId: string;
+    requestReason?: string;
+    isAutomatic?: boolean;
+    signature?: string;
+    inputSchemaInput?: unknown;
+}
+
+/**
+ * 用回放 part 替换目标 assistant 消息的 parts（纯函数：消息历史 + approval-response part，
+ * G3.3 裁决④）。目标消息按面板 id 定位（请求体无 id 字段，按下标对齐）。
+ */
+export function buildApprovalReplayMessages(
+    messages: ChatMessage[],
+    target: ApprovalReplayTarget,
+    decision: { approved: boolean; reason?: string },
+): ChatRequestMessage[] {
+    const requestMessages: ChatRequestMessage[] = messages.map((message) => ({
+        role: message.role,
+        parts: [{ type: 'text' as const, text: message.text }],
+    }));
+    const replayMessage = requestMessages[getMessageIndex(messages, target.messageId)];
+    const approvalPart: ChatRequestPart = {
+        type: `tool-${target.toolName}`,
+        toolCallId: target.toolCallId,
+        state: 'approval-responded' as const,
+        input: target.input,
+        approval: {
+            id: target.approvalId,
+            approved: decision.approved,
+            ...(decision.reason !== undefined ? { reason: decision.reason } : {}),
+            ...(target.requestReason !== undefined ? { requestReason: target.requestReason } : {}),
+            ...(target.isAutomatic !== undefined ? { isAutomatic: target.isAutomatic } : {}),
+            ...(target.signature !== undefined ? { signature: target.signature } : {}),
+            // inputSchemaInput 仅在原帧携带时回环（SDK 按 hasOwnProperty 判分支，补 undefined 会误走校验）
+            ...(target.inputSchemaInput !== undefined
+                ? { inputSchemaInput: target.inputSchemaInput }
+                : {}),
+        },
+    };
+    if (replayMessage !== undefined && replayMessage.role === 'assistant') {
+        replayMessage.parts = [
+            ...replayMessage.parts.filter((part) => part.type === 'text' && part.text !== ''),
+            approvalPart,
+        ];
+    }
+    return requestMessages;
+}
+
+/**
+ * edit 重新发起回放（G3.3 裁决③）：不发审批响应 —— 目标 assistant 消息追加新 tool-call part
+ * （新 toolCallId + 修改后 input，state=input-available 的纯 tool-call part）。
+ */
+export function buildEditReplayMessages(
+    messages: ChatMessage[],
+    target: {
+        messageId: string;
+        toolCallId: string;
+        toolName: string;
+        input: unknown;
+    },
+): ChatRequestMessage[] {
+    const requestMessages: ChatRequestMessage[] = messages.map((message) => ({
+        role: message.role,
+        parts: [{ type: 'text' as const, text: message.text }],
+    }));
+    const replayMessage = requestMessages[getMessageIndex(messages, target.messageId)];
+    if (replayMessage !== undefined && replayMessage.role === 'assistant') {
+        replayMessage.parts = [
+            ...replayMessage.parts.filter((part) => part.type === 'text' && part.text !== ''),
+            {
+                type: `tool-${target.toolName}`,
+                toolCallId: target.toolCallId,
+                state: 'input-available' as const,
+                input: target.input,
+            },
+        ];
+    }
+    return requestMessages;
+}
+
+/** 面板消息 id → 请求体下标（请求体无 id 字段，按下标对齐）。 */
+function getMessageIndex(messages: ChatMessage[], messageId: string): number {
+    return messages.findIndex((message) => message.id === messageId);
 }
 
 export interface StreamChatOptions {

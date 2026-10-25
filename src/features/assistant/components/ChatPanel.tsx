@@ -1,9 +1,11 @@
-import { Fragment, useEffect, useRef, useState, type FormEvent } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
 import { isAssistantBusy } from '../types/assistant';
 import { useAssistantStore } from '../state/useAssistantStore';
+import { useCatalogStore } from '../../catalog/store/useCatalogStore';
 import { renderToolOutput } from '../registry/renderToolOutput';
 import { AgentStatusBadge } from './AgentStatusBadge';
+import { ApprovalCard } from './ApprovalCard';
 import { ReasoningBlock } from './ReasoningBlock';
 import { StreamingText } from './StreamingText';
 import { ToolCallPanel } from './ToolCallPanel';
@@ -13,7 +15,19 @@ import styles from './ChatPanel.module.scss';
 const STICK_THRESHOLD_PX = 40;
 
 export function ChatPanel() {
-    const { messages, status, error, sendMessage, abort } = useAssistantStore();
+    const {
+        messages,
+        status,
+        error,
+        approval,
+        approvalSuperseded,
+        sendMessage,
+        abort,
+        approve,
+        reject,
+        editOrder,
+        cancelOrder,
+    } = useAssistantStore();
     const [draft, setDraft] = useState('');
     const listRef = useRef<HTMLDivElement | null>(null);
     const stickToBottomRef = useRef(true);
@@ -22,6 +36,35 @@ export function ChatPanel() {
 
     // isBusy 四态口径（裁决②）：thinking / streaming / tool_calling / tool_result，对应 USER_ABORT 四条边
     const isBusy = isAssistantBusy(status);
+    // G3.3 裁决⑤：await_human 期间输入由审批卡承接（sendMessage 侧同口径拒绝）
+    const isAwaitHuman = status === 'await_human';
+    const inputLocked = isBusy || isAwaitHuman;
+
+    // 审批卡条目解析：标题 / 现价取目录快照（裁决③ 展示值；最终以 server 实时计价为准）。
+    // 审批到达时目录可能未加载（直开 assistant 页）——按需拉取一次，响应式重渲染。
+    const products = useCatalogStore((state) => state.products);
+    const fetchProducts = useCatalogStore((state) => state.fetchProducts);
+    useEffect(() => {
+        if (approval !== null && products.length === 0) {
+            void fetchProducts();
+        }
+    }, [approval, products.length, fetchProducts]);
+
+    const approvalItems = useMemo(
+        () =>
+            approval === null
+                ? []
+                : approval.items.map((item) => {
+                      const product = products.find((entry) => entry.id === item.productId);
+                      return {
+                          productId: item.productId,
+                          title: product?.title ?? item.productId,
+                          quantity: item.quantity,
+                          unitPrice: product?.price ?? 0,
+                      };
+                  }),
+        [approval, products],
+    );
 
     // 智能自动滚动：滚动时记录用户是否在底部；上滑阅读后不抢滚动
     const handleScroll = () => {
@@ -48,7 +91,7 @@ export function ChatPanel() {
 
     const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        if (!draft.trim() || isBusy) return;
+        if (!draft.trim() || inputLocked) return;
         stickToBottomRef.current = true;
         void sendMessage(draft);
         setDraft('');
@@ -107,6 +150,26 @@ export function ChatPanel() {
                                                     {renderToolOutput(call)}
                                                 </Fragment>
                                             ))}
+                                        {approvalSuperseded !== null &&
+                                        message.id === approvalSuperseded.messageId ? (
+                                            <p className={styles.supersededNote}>
+                                                {approvalSuperseded.note}
+                                            </p>
+                                        ) : null}
+                                        {approval !== null && message.id === approval.messageId ? (
+                                            <ApprovalCard
+                                                items={approvalItems}
+                                                approvalId={approval.approvalId}
+                                                expiresAt={approval.expiresAt}
+                                                requestReason={approval.requestReason}
+                                                phase={approval.phase}
+                                                decisionReason={approval.decisionReason}
+                                                onApprove={approve}
+                                                onReject={reject}
+                                                onEditConfirm={editOrder}
+                                                onCancel={cancelOrder}
+                                            />
+                                        ) : null}
                                         {message.text ? (
                                             <StreamingText
                                                 text={message.text}
@@ -148,9 +211,15 @@ export function ChatPanel() {
                     type="text"
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}
-                    placeholder={isBusy ? '生成中…' : '输入你的需求，如「推荐免费的素材」'}
+                    placeholder={
+                        isBusy
+                            ? '生成中…'
+                            : isAwaitHuman
+                              ? '请先完成上方订单审批'
+                              : '输入你的需求，如「推荐免费的素材」'
+                    }
                     aria-label="消息输入框"
-                    disabled={isBusy}
+                    disabled={inputLocked}
                 />
                 {isBusy ? (
                     <button type="button" className={styles.stopButton} onClick={abort}>

@@ -5,8 +5,8 @@ import { EmptyState } from '../../catalog/components/EmptyState';
 import { ProductCard } from '../../catalog/components/ProductCard';
 import { ProductGrid } from '../../catalog/components/ProductGrid';
 import type { Product } from '../../catalog/types/product';
-import { ApprovalCard } from '../components/ApprovalCard';
 import { CartConfirmCard } from '../components/CartConfirmCard';
+import { OrderResultCard } from '../components/OrderResultCard';
 import { PriceBreakdown } from '../components/PriceBreakdown';
 import { ToolError } from '../components/ToolError';
 import styles from './uiRegistry.module.scss';
@@ -55,6 +55,13 @@ export const addToCartOutputSchema = z.object({
     productId: z.string(),
     quantity: z.number().int().positive(),
     product: productSchema,
+});
+
+/** placeOrder 执行回执契约（镜像 server PlaceOrderOutput 成功三字段；error 回执先行分流）。 */
+const orderResultSchema = z.object({
+    orderId: z.string(),
+    orderNumber: z.string(),
+    amount: z.number(),
 });
 
 /** 工具输出体内的业务错误（server 契约：错误 = 输出体内 error 字段，不走 HTTP 错误码）。 */
@@ -112,6 +119,16 @@ export const UI_REGISTRY: Record<string, (call: ToolCallOutput) => ReactNode> = 
         }
         return <CartConfirmCard product={parsed.data.product} quantity={parsed.data.quantity} />;
     },
-    // placeOrder 工具物理不存在，key 先占位防协议漂移；G2.4 仅静态占位（裁决④）
-    'tool-placeOrder': () => <ApprovalCard />,
+    // G3.3（裁决②）：placeOrder 输出分支 = 执行回执（审批交互卡由 ChatPanel 按 store 审批态渲染，
+    // 不走 registry 决策；approval-request 不是 tool output）。分支保持纯渲染零副作用。
+    'tool-placeOrder': (call) => {
+        if (call.error !== undefined) return <ToolError message={call.error} />;
+        const businessError = outputErrorMessage(call.output);
+        if (businessError !== undefined) return <ToolError message={businessError} />;
+        const parsed = orderResultSchema.safeParse(call.output);
+        if (!parsed.success) {
+            return <ToolError title={INVALID_TITLE} message={INVALID_MESSAGE} />;
+        }
+        return <OrderResultCard result={parsed.data} />;
+    },
 };

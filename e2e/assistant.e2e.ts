@@ -426,3 +426,142 @@ test('E2E-AI-18 目录页加购入口：page.route 回放远程商品 → 加购
     await page.goto('/#/');
     await expect(page.getByRole('button', { name: '购物车，2 件商品' })).toBeVisible();
 });
+
+/** G3.3 订单审批场景：目录快照路由（审批卡条目标题 / 现价解析源，p-order-1/2 与 mock 帧一致）。 */
+async function routeOrderProducts(page: Page): Promise<void> {
+    await page.route('https://closet-recruiting-api.azurewebsites.net/api/data', (route) =>
+        route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify([
+                {
+                    id: 'p-order-1',
+                    creator: 'Creator A',
+                    title: '付费模板 Alpha',
+                    pricingOption: 0,
+                    imagePath: '',
+                    price: 10,
+                },
+                {
+                    id: 'p-order-2',
+                    creator: 'Creator B',
+                    title: '音效包 Beta',
+                    pricingOption: 0,
+                    imagePath: '',
+                    price: 7.5,
+                },
+            ]),
+        }),
+    );
+}
+
+/** 跑到审批卡可操作态：发送订单场景 → badge 等待确认 + 卡渲染。 */
+async function reachApprovalCard(page: Page) {
+    await send(page, '__e2e_order__');
+    const badge = page.getByRole('status', { name: '助手状态' });
+    await expect(badge).toHaveText('等待确认');
+    const card = page.getByTestId('approval-card');
+    await expect(card).toBeVisible();
+    return { badge, card };
+}
+
+test('E2E-AI-19 审批通过闭环：approval-request → 卡 → approve → 回放执行回执 + 订单号；badge await_human 投影序列（INT-HITL-01）', async ({
+    page,
+}) => {
+    await routeOrderProducts(page);
+    const badge = page.getByRole('status', { name: '助手状态' });
+    await expect(badge).toHaveText('待命');
+
+    await send(page, '__e2e_order__');
+    // 投影序列：待命 → 思考中/生成回复（瞬态）→ 等待确认（APPROVAL_REQUEST 边真实可达）
+    await expect(badge).toHaveText('等待确认');
+    await expect(page.getByLabel('消息输入框')).toBeDisabled();
+    await expect(page.getByLabel('消息输入框')).toHaveAttribute(
+        'placeholder',
+        '请先完成上方订单审批',
+    );
+
+    // 卡数据：条目（标题 / 数量 / 小计）+ 合计 + 审批单号 + TTL 倒计时
+    const card = page.getByTestId('approval-card');
+    await expect(card).toContainText('审批单号 appr-e2e-1');
+    await expect(card).toContainText('剩余 4:');
+    await expect(card).toContainText('付费模板 Alpha');
+    await expect(card.getByText('× 1')).toBeVisible();
+    await expect(card).toContainText('$10.00');
+    await expect(card).toContainText('音效包 Beta');
+    await expect(card.getByText('× 2')).toBeVisible();
+    await expect(card).toContainText('$15.00');
+    await expect(card).toContainText('合计 $25.00');
+
+    // approve → 卡转执行中 → badge 调用工具 → 工具结果 → 生成回复 → 已完成
+    await card.getByRole('button', { name: '确认下单' }).click();
+    await expect(card).toContainText('订单执行中…');
+    await expect(badge).toHaveText('调用工具');
+    await expect
+        .poll(async () => badge.textContent(), { intervals: [20, 50, 100], timeout: 5_000 })
+        .toBe('工具结果');
+    await expect
+        .poll(async () => badge.textContent(), { intervals: [20, 50, 100], timeout: 5_000 })
+        .toBe('生成回复');
+    await expect(badge).toHaveText('已完成');
+
+    // 执行回执：registry 订单结果卡 + 回复文本含订单号 + 工具成功卡
+    await expect(page.getByTestId('order-result-card')).toContainText('订单号：order-e2e0001');
+    await expect(page.getByTestId('order-result-card')).toContainText('实付金额：$25.00');
+    await expect(assistantBubble(page)).toContainText('订单号 order-e2e0001');
+    await expect(page.locator('div[data-state="success"]')).toContainText('placeOrder');
+    await expect(page.getByLabel('消息输入框')).toBeEnabled();
+});
+
+test('E2E-AI-20 reject 修正链路：deny 复放 → 修正文本出现 + 卡展示拒绝原因（INT-HITL-02）', async ({
+    page,
+}) => {
+    await routeOrderProducts(page);
+    const { badge, card } = await reachApprovalCard(page);
+
+    // 预设 reason 最小形态：默认「太贵了」，确认拒绝
+    await card.getByRole('button', { name: '拒绝' }).click();
+    await card.getByRole('button', { name: '确认拒绝' }).click();
+    await expect(card).toContainText('已拒绝：太贵了');
+    // deny ≠ 失败：无错误横幅
+    await expect(page.getByRole('alert')).toHaveCount(0);
+
+    // 修正方案文本（execution-denied → 模型续跑生成）
+    await expect(assistantBubble(page)).toContainText('免费的替代商品');
+    await expect(badge).toHaveText('已完成');
+    await expect(page.getByLabel('消息输入框')).toBeEnabled();
+});
+
+test('E2E-AI-21 edit 重新发起：卡内改数量 / 移除条目 → 新 toolCall → 新审批卡替换旧卡 → 通过新卡完成（INT-HITL-03）', async ({
+    page,
+}) => {
+    await routeOrderProducts(page);
+    const { badge, card } = await reachApprovalCard(page);
+
+    // 卡内修改：音效包 Beta 2 → 1，移除付费模板 Alpha（合计 25.00 → 7.50 实时重算）
+    await card.getByRole('button', { name: '修改' }).click();
+    await card.getByRole('button', { name: '减少 音效包 Beta' }).click();
+    await expect(card.getByTestId('edit-qty-p-order-2')).toHaveText('1');
+    // 合计实时重算：25.00 →（Beta 2→1）17.50 →（移除 Alpha）7.50
+    await expect(card).toContainText('合计 $17.50');
+    await card.getByRole('button', { name: '移除 付费模板 Alpha' }).click();
+    await expect(card).toContainText('合计 $7.50');
+    await card.getByRole('button', { name: '确认修改并重新发起' }).click();
+
+    // 旧卡被替换为失效提示（<p>，非卡），新卡（新审批单号 + 修改后 items）渲染
+    await expect(page.getByText('已修改并重新发起', { exact: true })).toBeVisible();
+    const newCard = page.getByTestId('approval-card');
+    await expect(newCard).toContainText('审批单号 appr-e2e-2');
+    await expect(newCard).toContainText('音效包 Beta');
+    await expect(newCard.getByText('× 1')).toBeVisible();
+    await expect(newCard).toContainText('合计 $7.50');
+    await expect(newCard).not.toContainText('付费模板 Alpha');
+    await expect(badge).toHaveText('等待确认');
+
+    // 通过新卡 approve 完成闭环：新执行回执（edit 订单号）
+    await newCard.getByRole('button', { name: '确认下单' }).click();
+    await expect(page.getByTestId('order-result-card')).toContainText('订单号：order-e2e0002');
+    await expect(assistantBubble(page)).toContainText('订单号 order-e2e0002');
+    await expect(badge).toHaveText('已完成');
+    await expect(page.getByLabel('消息输入框')).toBeEnabled();
+});
