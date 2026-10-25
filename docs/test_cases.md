@@ -140,6 +140,8 @@ mock 流用例（E2E-AI-01 ~ 08 为 G1.4，E2E-AI-10 ~ 13 为 G2.3 工具调用�
 | E2E-AI-13 | Tool Failure Recovery               | mock `__e2e_tool_error__` 场景：tool-output-error 帧（errorText「catalog snapshot unavailable」）。 | 错误横幅含「工具调用失败」+ 上游 errorText；输入恢复；error 后再发新消息走 RETRY → USER_SEND 正常回复、横幅消失。       |
 | E2E-AI-14 | Generative UI Real Product Cards    | mock `__e2e_tool_ui__` 场景：searchCatalog 输出 2 件商品（映射 INT-AI-04 / 裁决⑥）。                | 气泡内渲染存量 ProductGrid + 2 张真实 ProductCard（aria-label 结构 / 标题 / 价格文本）；计算样式 grid 列数 = 2。        |
 | E2E-AI-15 | Generative UI Unregistered Fallback | mock `__e2e_tool_unknown__` 场景：deleteAccount 工具输出（映射 UT-REG-02 E2E 侧）。                 | 气泡内无商品卡；出现 fallback 文本「暂不支持展示该工具的结果」；回复正常完成、输入恢复。                                |
+| E2E-AI-16 | Add to Cart Journey                 | mock `__e2e_cart__` 场景：addToCart 工具回执（映射 UT-CART-01）。                                   | 回执后 drawer 自动打开、条目（标题/数量/小计）正确；关闭后 badge 计数正确；badge 点击重开 drawer。                      |
+| E2E-AI-17 | Cart Edit & Persist                 | mock `__e2e_cart__` 场景：drawer 内步进加量 / 删除单项（映射 UT-CART-02/03）。                      | 合计联动正确；`page.reload()` 后 badge 计数与 drawer 内容从 localStorage 恢复（persist 浏览器侧实证）。                 |
 
 ---
 
