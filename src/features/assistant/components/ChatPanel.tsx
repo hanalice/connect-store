@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Fragment, useEffect, useRef, useState, type FormEvent } from 'react';
 
 import { isAssistantBusy } from '../types/assistant';
 import { useAssistantStore } from '../state/useAssistantStore';
+import { renderToolOutput } from '../registry/renderToolOutput';
 import { AgentStatusBadge } from './AgentStatusBadge';
 import { ReasoningBlock } from './ReasoningBlock';
 import { StreamingText } from './StreamingText';
@@ -95,6 +96,17 @@ export function ChatPanel() {
                                             streaming={streaming}
                                         />
                                         <ToolCallPanel toolCalls={message.toolCalls ?? []} />
+                                        {(message.toolCalls ?? [])
+                                            .filter(
+                                                (call) =>
+                                                    call.output !== undefined ||
+                                                    call.error !== undefined,
+                                            )
+                                            .map((call) => (
+                                                <Fragment key={`tool-ui-${call.toolCallId}`}>
+                                                    {renderToolOutput(call)}
+                                                </Fragment>
+                                            ))}
                                         {message.text ? (
                                             <StreamingText
                                                 text={message.text}

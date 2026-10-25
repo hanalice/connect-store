@@ -224,3 +224,61 @@ test('E2E-AI-13 工具失败恢复：错误横幅含工具失败文案，再发�
     await expect(page.getByRole('alert')).toHaveCount(0);
     await expect(page.getByLabel('消息输入框')).toBeEnabled();
 });
+
+test('E2E-AI-14 真实商品卡：searchCatalog 输出 → 气泡内 2 列 ProductGrid + 2 张真实 ProductCard（INT-AI-04 / 裁决⑥）', async ({
+    page,
+}) => {
+    await send(page, '__e2e_tool_ui__');
+    const bubble = assistantBubble(page);
+
+    // 存量 ProductGrid（复用组件渲染 section.grid）+ assistant 侧 2 列 wrapper
+    const gridWrapper = bubble.getByTestId('tool-search-catalog-grid');
+    await expect(gridWrapper).toBeVisible();
+    const gridSection = gridWrapper.locator('section');
+    await expect(gridSection).toBeVisible();
+
+    // 计算样式列数 = 2（裁决⑥：wrapper 覆盖媒体查询，全视口恒定 2 列）
+    await expect
+        .poll(async () =>
+            gridSection.evaluate(
+                (el) => getComputedStyle(el).gridTemplateColumns.split(' ').length,
+            ),
+        )
+        .toBe(2);
+
+    // 真实 ProductCard（非纯文本）：aria-label 结构 {title} by {creator}, price …
+    const cards = gridSection.locator('[role="button"]');
+    await expect(cards).toHaveCount(2);
+    await expect(cards.nth(0)).toHaveAttribute(
+        'aria-label',
+        '免费素材 Alpha by Creator A, price Free',
+    );
+    await expect(cards.nth(1)).toHaveAttribute(
+        'aria-label',
+        '免费素材 Beta by Creator B, price Free',
+    );
+    await expect(bubble).toContainText('免费素材 Alpha');
+    await expect(bubble).toContainText('免费素材 Beta');
+
+    // 过程卡（ToolCallPanel 职责）与最终回复照常
+    await expect(bubble.locator('div[data-state="success"]')).toContainText('searchCatalog');
+    await expect(bubble).toContainText('为你找到 2 个免费素材');
+    await expect(page.getByLabel('消息输入框')).toBeEnabled();
+});
+
+test('E2E-AI-15 未注册 fallback：deleteAccount 输出 → 气泡内无商品卡 + fallback 文本 + 回复正常完成（UT-REG-02 E2E 侧）', async ({
+    page,
+}) => {
+    await send(page, '__e2e_tool_unknown__');
+    const bubble = assistantBubble(page);
+
+    // 白名单外 toolName → 降级 fallback 文本（裁决⑤），绝不渲染任意组件
+    await expect(bubble).toContainText('暂不支持展示该工具的结果');
+    await expect(bubble.locator('[role="button"]')).toHaveCount(0);
+    await expect(bubble.locator('section')).toHaveCount(0);
+
+    // 过程卡仍在（裁决③：过程归面板），回复正常完成
+    await expect(bubble.locator('div[data-state="success"]')).toContainText('deleteAccount');
+    await expect(bubble).toContainText('未知工具已执行，回复继续');
+    await expect(page.getByLabel('消息输入框')).toBeEnabled();
+});

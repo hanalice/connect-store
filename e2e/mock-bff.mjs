@@ -11,6 +11,8 @@
  *   __e2e_error_chunk__ 部分正文后推 error chunk
  *   __e2e_tool__        工具流（双命名闸门）：start → start-step → [闸门 pre] → tool-input-available
  *                       → [闸门 post] → tool-output-available → 正文 → finish
+ *   __e2e_tool_ui__     工具流（Generative UI）：searchCatalog 输出 2 件商品 → 气泡内真实商品卡
+ *   __e2e_tool_unknown__ 工具流（未注册 toolName）：deleteAccount 输出 → fallback 文本
  *   __e2e_tool_hang__   工具流挂起：tool-input-available 后等客户端 abort 关闭连接
  *   __e2e_tool_error__  工具失败：tool-input-available → tool-output-error → finish
  *   其他                 默认快速短回复
@@ -178,6 +180,70 @@ async function runTool(res) {
     finishStream(res);
 }
 
+async function runToolUi(res) {
+    writeFrame(res, { type: 'start' });
+    writeFrame(res, { type: 'start-step' });
+    writeFrame(res, {
+        type: 'tool-input-available',
+        toolCallId: 'call-ui',
+        toolName: 'searchCatalog',
+        input: { query: '免费素材', pricingOption: 1 },
+    });
+    writeFrame(res, {
+        type: 'tool-output-available',
+        toolCallId: 'call-ui',
+        output: {
+            items: [
+                {
+                    id: 'p-ui-1',
+                    creator: 'Creator A',
+                    title: '免费素材 Alpha',
+                    pricingOption: 1,
+                    imagePath: '',
+                    price: 0,
+                },
+                {
+                    id: 'p-ui-2',
+                    creator: 'Creator B',
+                    title: '免费素材 Beta',
+                    pricingOption: 1,
+                    imagePath: '',
+                    price: 0,
+                },
+            ],
+            total: 2,
+        },
+    });
+    writeFrame(res, { type: 'text-start', id: 't1' });
+    await sleep(30);
+    writeFrame(res, { type: 'text-delta', id: 't1', delta: '为你找到 2 个免费素材' });
+    writeFrame(res, { type: 'text-end', id: 't1' });
+    writeFrame(res, { type: 'finish', finishReason: 'stop' });
+    finishStream(res);
+}
+
+async function runToolUnknown(res) {
+    writeFrame(res, { type: 'start' });
+    writeFrame(res, { type: 'start-step' });
+    writeFrame(res, {
+        type: 'tool-input-available',
+        toolCallId: 'call-unknown',
+        toolName: 'deleteAccount',
+        input: {},
+    });
+    writeFrame(res, {
+        type: 'tool-output-available',
+        toolCallId: 'call-unknown',
+        output: { deleted: true },
+    });
+    writeFrame(res, { type: 'text-start', id: 't1' });
+    await sleep(30);
+    writeFrame(res, { type: 'text-delta', id: 't1', delta: '未知工具已执行，回复继续' });
+    writeFrame(res, { type: 'text-end', id: 't1' });
+    writeFrame(res, { type: 'finish', finishReason: 'stop' });
+    finishStream(res);
+}
+
 async function runToolHang(res) {
     writeFrame(res, { type: 'start' });
     writeFrame(res, { type: 'start-step' });
@@ -218,6 +284,8 @@ function pickScenario(text) {
     if (text.includes('__e2e_error_chunk__')) return runErrorChunk;
     if (text.includes('__e2e_tool_hang__')) return runToolHang;
     if (text.includes('__e2e_tool_error__')) return runToolError;
+    if (text.includes('__e2e_tool_ui__')) return runToolUi;
+    if (text.includes('__e2e_tool_unknown__')) return runToolUnknown;
     if (text.includes('__e2e_tool__')) return runTool;
     return runDefault;
 }
