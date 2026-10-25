@@ -116,23 +116,28 @@
 | INT-HITL-03 | Edit Action Modification           | Click "Edit Order", adjust item quantities or delete item from approval card. | Updates draft payload; refreshes card price summary; awaits confirmation.                      |
 | INT-HITL-04 | Approval Timeout Expiration        | Leave `ApprovalCard` in pending state beyond TTL (5 minutes).                 | Card status changes to "Expired"; action buttons disabled; prompts user to re-initiate order.  |
 
-### 3.4 Assistant E2E (Playwright, `e2e/`，G1.4 落地)
+### 3.4 Assistant E2E (Playwright, `e2e/`，G1.4 / G2.3 落地)
 
-mock 流用例（E2E-AI-01 ~ 08）全部走确定性 mock SSE（`e2e/mock-bff.mjs`，按消息文本选场景），
+mock 流用例（E2E-AI-01 ~ 08 为 G1.4，E2E-AI-10 ~ 13 为 G2.3 工具调用场景）全部走确定性 mock SSE
+（`e2e/mock-bff.mjs`，按消息文本选场景，工具场景用 `/__release?gate=` 命名闸门停在中间态），
 默认 `npm run test:e2e` 运行；E2E-AI-09 为 live 冒烟（`@live` 标签隔离），不进默认门禁，
 需先 `npm run dev:bff` 再 `npm run test:e2e:live` 手动触发。
 
-| ID        | Title                              | Description                                                                                         | Expected Result                                                                                                       |
-| --------- | ---------------------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| E2E-AI-01 | Assistant Page Load                | Navigate to `#/assistant`.                                                                          | 输入框 / 发送按钮可见，页面标题「AI 导购助手」渲染。                                                                  |
-| E2E-AI-02 | Incremental Streaming Render       | mock gated 场景：第一帧增量后停在闸门，断言中间态后放行剩余帧（映射 INT-AI-01 / A11Y-04）。         | 文本从「推荐」中间态增长为「推荐免费素材」（非一次性整段）；流式容器带 `aria-live="polite"`；流结束后输入框恢复可用。 |
-| E2E-AI-03 | Stop Streaming Mid-Flight          | mock hang 场景：收到部分文本后点「停止」（映射 INT-AI-02）。                                        | 「已停止生成」提示条出现；输入框恢复可用；已收到部分文本保留；无错误横幅。                                            |
-| E2E-AI-04 | Reasoning Collapse Toggle          | mock reasoning 场景：reasoning-delta + text-delta 帧流。                                            | 折叠区默认收起、标题「思考过程」、内容不可见；点击展开后 reasoning 内容可见。                                         |
-| E2E-AI-05 | Smart Scroll Follow                | mock long 场景：40 帧长文（50ms/帧）撑出滚动条。                                                    | 流式中上滑后 scrollTop 不被抢（< 40px 漂移）；回到底部后恢复跟随，流结束时停在底部（距底 < 40px）。                   |
-| E2E-AI-06 | Error Banner on Network Failure    | `page.route` 对 `/api/chat` 执行 `route.abort()` 模拟断网。                                         | 错误横幅「无法连接服务器，请检查网络后重试」；不白屏，输入框恢复可用。                                                |
-| E2E-AI-07 | Error Banner on HTTP 502           | `route.fulfill` 返 502 HTML（= dev 停 BFF 时 Vite proxy 行为）。                                    | 错误横幅含「HTTP 502」；输入框恢复可用。                                                                              |
-| E2E-AI-08 | Error Banner on Stream error Chunk | mock error_chunk 场景：部分正文后推 `{"type":"error","errorText":"上游模型服务错误（HTTP 500）"}`。 | 错误横幅显示该 errorText；已收到部分文本保留；输入框恢复可用。                                                        |
-| E2E-AI-09 | Live Smoke (manual, not in gate)   | 真打 BFF + 上游 LLM 发「请用三句话介绍你自己」（`@live` 标签，`playwright.live.config.ts`）。       | 首个增量文本出现后最终文本更长（增量渲染）；流正常结束、输入框恢复可用；无错误横幅。                                  |
+| ID        | Title                              | Description                                                                                         | Expected Result                                                                                                         |
+| --------- | ---------------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| E2E-AI-01 | Assistant Page Load                | Navigate to `#/assistant`.                                                                          | 输入框 / 发送按钮可见，页面标题「AI 导购助手」渲染。                                                                    |
+| E2E-AI-02 | Incremental Streaming Render       | mock gated 场景：第一帧增量后停在闸门，断言中间态后放行剩余帧（映射 INT-AI-01 / A11Y-04）。         | 文本从「推荐」中间态增长为「推荐免费素材」（非一次性整段）；流式容器带 `aria-live="polite"`；流结束后输入框恢复可用。   |
+| E2E-AI-03 | Stop Streaming Mid-Flight          | mock hang 场景：收到部分文本后点「停止」（映射 INT-AI-02）。                                        | 「已停止生成」提示条出现；输入框恢复可用；已收到部分文本保留；无错误横幅。                                              |
+| E2E-AI-04 | Reasoning Collapse Toggle          | mock reasoning 场景：reasoning-delta + text-delta 帧流。                                            | 折叠区默认收起、标题「思考过程」、内容不可见；点击展开后 reasoning 内容可见。                                           |
+| E2E-AI-05 | Smart Scroll Follow                | mock long 场景：40 帧长文（50ms/帧）撑出滚动条。                                                    | 流式中上滑后 scrollTop 不被抢（< 40px 漂移）；回到底部后恢复跟随，流结束时停在底部（距底 < 40px）。                     |
+| E2E-AI-06 | Error Banner on Network Failure    | `page.route` 对 `/api/chat` 执行 `route.abort()` 模拟断网。                                         | 错误横幅「无法连接服务器，请检查网络后重试」；不白屏，输入框恢复可用。                                                  |
+| E2E-AI-07 | Error Banner on HTTP 502           | `route.fulfill` 返 502 HTML（= dev 停 BFF 时 Vite proxy 行为）。                                    | 错误横幅含「HTTP 502」；输入框恢复可用。                                                                                |
+| E2E-AI-08 | Error Banner on Stream error Chunk | mock error_chunk 场景：部分正文后推 `{"type":"error","errorText":"上游模型服务错误（HTTP 500）"}`。 | 错误横幅显示该 errorText；已收到部分文本保留；输入框恢复可用。                                                          |
+| E2E-AI-09 | Live Smoke (manual, not in gate)   | 真打 BFF + 上游 LLM 发「请用三句话介绍你自己」（`@live` 标签，`playwright.live.config.ts`）。       | 首个增量文本出现后最终文本更长（增量渲染）；流正常结束、输入框恢复可用；无错误横幅。                                    |
+| E2E-AI-10 | Tool Card Live Display             | mock `__e2e_tool__` 场景 + 双命名闸门：pre 放行工具输入帧、post 放行输出帧（映射 INT-AI-03）。      | 闸门停在执行中：工具名 / 格式化参数 / spinner 态 / 不显示耗时；放行后成功态 + 耗时（ms）+ 回复完成、输入恢复。          |
+| E2E-AI-11 | Status Projection Sequence         | mock `__e2e_tool__` 场景：轮询 badge 文案逐步变化（映射 INT-AI-05）。                               | badge 随 thinking → tool_calling → tool_result → streaming → done 逐态投影（调用工具 / 工具结果 / 生成回复 / 已完成）。 |
+| E2E-AI-12 | Stop While Tool Running            | mock `__e2e_tool_hang__` 场景：工具执行中点「停止」（映射 INT-AI-02）。                             | 「已停止生成」提示出现；**无 alert 错误横幅**（取消 ≠ 失败）；输入框恢复可用。                                          |
+| E2E-AI-13 | Tool Failure Recovery              | mock `__e2e_tool_error__` 场景：tool-output-error 帧（errorText「catalog snapshot unavailable」）。 | 错误横幅含「工具调用失败」+ 上游 errorText；输入恢复；error 后再发新消息走 RETRY → USER_SEND 正常回复、横幅消失。       |
 
 ---
 
