@@ -64,6 +64,7 @@
 | E2E-AI-10 ~ 13 | ✅   | `e2e/assistant.e2e.ts`（G2.3 工具调用场景，命名闸门中间态断言）                                          | 本地门禁（G4.1 入 CI）                                                           |
 | E2E-AI-14 ~ 15 | ✅   | `e2e/assistant.e2e.ts`（G2.4 Generative UI 场景；14 映射 INT-AI-04 / 裁决⑥，15 映射 UT-REG-02 E2E 侧）   | 本地门禁（G4.1 入 CI）；报告 `docs/reports/G2.4.md` §二 #3                       |
 | E2E-AI-16 ~ 17 | ✅   | `e2e/assistant.e2e.ts`（G3.1 `__e2e_cart__` 加购/持久化场景；16 映射 UT-CART-01，17 映射 UT-CART-02/03） | 本地门禁（G4.1 入 CI）；报告 `docs/reports/G3.1.md` §二 #3                       |
+| E2E-AI-18      | ✅   | `e2e/assistant.e2e.ts`（G3.1a 目录页加购入口，page.route 回放远程商品快照）                              | 本地门禁（G4.1 入 CI）；报告 `docs/reports/G3.1a.md` §二                         |
 | E2E-AI-09      | ⬜   | `e2e/live-smoke.e2e.ts`（`@live` 标签隔离）                                                              | **手动**，不进 CI；G2.3 QA 复验失败（BFF 未在线，环境前置未满足），待带 BFF 复跑 |
 
 ### 2.3 BFF / 安全契约（curl 验收，QA 每 G 执行）
