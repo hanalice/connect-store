@@ -71,12 +71,12 @@
 
 | ID        | 状态 | 所属 G                                               | 验收方式                |
 | --------- | ---- | ---------------------------------------------------- | ----------------------- |
-| API-AI-01 | ⬜   | G3.2                                                 | curl（未审批拦截）      |
+| API-AI-01 | ✅   | G3.2 已落地（报告 `docs/reports/G3.2.md` §二 #5）    | curl（未审批拦截）      |
 | API-AI-02 | ✅   | G2.1 已落地（报告 `docs/reports/G2.1.md` §二 #1–#9） | curl（单通道+价格区间） |
 | API-AI-03 | ⬜   | G1.4 已部分覆盖（error chunk / 502）                 | curl + E2E              |
-| API-AI-04 | ⬜   | G3.2                                                 | curl（按 orderId 查询） |
-| API-AI-05 | ⬜   | G3.2                                                 | curl（TTL 过期）        |
-| API-AI-06 | ⬜   | G3.2                                                 | curl（伪造审批拦截）    |
+| API-AI-04 | ✅   | G3.2 已落地（报告 `docs/reports/G3.2.md` §二 #6）    | curl（按 orderId 查询） |
+| API-AI-05 | ✅   | G3.2 已落地（报告 `docs/reports/G3.2.md` §二 #7）    | curl（TTL 过期）        |
+| API-AI-06 | ✅   | G3.2 已落地（报告 `docs/reports/G3.2.md` §二 #3）    | curl（伪造审批拦截）    |
 
 ## 3. 使用约定
 

@@ -181,6 +181,11 @@ E2E-AI-18 为 G3.1a 目录页加购用例（目录页首条）：catalog 数据�
 | API-AI-05 | Approval TTL via `toolApproval`      | Replay an approval response after its TTL has elapsed.                            | `toolApproval` callback rejects it with `{ type: 'denied', reason: 'approval expired' }`.                                             |
 | API-AI-06 | Forged Approval Interception         | Craft a valid-looking `tool-approval-response` client-side (no server signature). | BFF rejects it before execution (HMAC signature mismatch); no order is created.                                                       |
 
+落地登记（G3.2，QA 验收 2026-10-25，报告 `docs/reports/G3.2.md` §二）：API-AI-01 / API-AI-04 /
+API-AI-05 / API-AI-06 已在 server 侧落地（编号嵌测试标题 + curl 实证），执行状态见
+`docs/regression-index.md` §2.3。注意 API-AI-01 落地形态为工具输出体 `{ error }`（沿用工具
+错误契约）而非 HTTP 403——以 Expected Result 的「无订单产生」安全语义为准。
+
 ---
 
 ## 6. Automation & DoD Plan
