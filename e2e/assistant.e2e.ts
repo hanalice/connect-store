@@ -348,3 +348,81 @@ test('E2E-AI-17 删改与持久化：步进加量 / 删除 → 合计联动 → 
     await expect(restored.getByTestId('cart-total')).toHaveText('$0.00');
     await expect(restored.getByText('购物车是空的')).toBeVisible();
 });
+
+test('E2E-AI-18 目录页加购入口：page.route 回放远程商品 → 加购 → badge 计数 → 开抽屉见条目 → reload 恢复（persist 跨页实证）', async ({
+    page,
+}) => {
+    // catalog 数据来自远程绝对 URL，不经 vite proxy / mock-bff——对该 URL 确定性回放 2 件商品
+    await page.route('https://closet-recruiting-api.azurewebsites.net/api/data', (route) =>
+        route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify([
+                {
+                    id: 'catalog-a',
+                    creator: 'Creator A',
+                    title: '目录回放 A',
+                    pricingOption: 1,
+                    imagePath: '',
+                    price: 0,
+                },
+                {
+                    id: 'catalog-b',
+                    creator: 'Creator B',
+                    title: '目录回放 B',
+                    pricingOption: 0,
+                    imagePath: '',
+                    price: 12.5,
+                },
+            ]),
+        }),
+    );
+
+    await page.goto('/#/');
+    // 回放数据落卡：存量 ProductCard 形态（role="button" + aria-label）
+    await expect(
+        page.getByRole('button', { name: '目录回放 A by Creator A, price Free' }),
+    ).toBeVisible();
+    await expect(
+        page.getByRole('button', { name: '目录回放 B by Creator B, price $12.50' }),
+    ).toBeVisible();
+
+    // 加购入口：wrapper 兄弟节点按钮，accessible name「加入购物车，{title}」
+    const badge0 = page.getByRole('button', { name: '购物车，0 件商品' });
+    await expect(badge0).toBeVisible();
+    await page.getByRole('button', { name: '加入购物车，目录回放 A' }).click();
+    await page.getByRole('button', { name: '加入购物车，目录回放 B' }).click();
+
+    // badge 计数 +1/+1（条目行数口径：2 件不同商品 = 2）
+    const badge = page.getByRole('button', { name: '购物车，2 件商品' });
+    await expect(badge).toBeVisible();
+
+    // 开抽屉见条目：数量 / 小计 / 合计联动（Free 0 + 12.50）
+    await badge.click();
+    const drawer = page.getByRole('dialog', { name: '购物车' });
+    await expect(drawer).toBeVisible();
+    const rowA = drawer.getByTestId('cart-item-catalog-a');
+    await expect(rowA).toContainText('目录回放 A');
+    await expect(rowA.getByTestId('cart-quantity')).toHaveText('1');
+    await expect(rowA.getByTestId('cart-subtotal')).toHaveText('$0.00');
+    const rowB = drawer.getByTestId('cart-item-catalog-b');
+    await expect(rowB).toContainText('目录回放 B');
+    await expect(rowB.getByTestId('cart-subtotal')).toHaveText('$12.50');
+    await expect(drawer.getByTestId('cart-total')).toHaveText('$12.50');
+
+    // reload：items 持久化恢复，drawer 开关属 UI 态不恢复（裁决③），badge 重开见内容
+    await page.reload();
+    await expect(page.getByRole('button', { name: '购物车，2 件商品' })).toBeVisible();
+    await expect(page.getByRole('dialog', { name: '购物车' })).toHaveCount(0);
+    await page.getByRole('button', { name: '购物车，2 件商品' }).click();
+    const restored = page.getByRole('dialog', { name: '购物车' });
+    await expect(restored.getByTestId('cart-item-catalog-a')).toBeVisible();
+    await expect(restored.getByTestId('cart-item-catalog-b')).toBeVisible();
+    await expect(restored.getByTestId('cart-total')).toHaveText('$12.50');
+
+    // persist 跨页实证：同一 localStorage 源，assistant 页角标同源恢复
+    await page.goto('/#/assistant');
+    await expect(page.getByRole('button', { name: '购物车，2 件商品' })).toBeVisible();
+    await page.goto('/#/');
+    await expect(page.getByRole('button', { name: '购物车，2 件商品' })).toBeVisible();
+});

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
+import { CartBadge } from '../cart/components/CartBadge';
+import { CartDrawer } from '../cart/components/CartDrawer';
+import { CatalogProductCard } from './components/CatalogProductCard';
 import { EmptyState } from './components/EmptyState';
 import { ErrorState } from './components/ErrorState';
 import { FilterPanel } from './components/FilterPanel';
-import { ProductCard } from './components/ProductCard';
 import { ProductGrid } from './components/ProductGrid';
 import { ProductSkeletonCard } from './components/ProductSkeletonCard';
 import { SearchBar } from './components/SearchBar';
@@ -135,6 +137,7 @@ export function CatalogPage() {
                         <Link to="/assistant" className={styles.assistantLink}>
                             AI 导购
                         </Link>
+                        <CartBadge />
                         <ThemeToggle theme={theme} onToggle={toggleTheme} />
                     </div>
                 </div>
@@ -182,7 +185,7 @@ export function CatalogPage() {
                         <>
                             <ProductGrid>
                                 {visibleProducts.map((product) => (
-                                    <ProductCard key={product.id} product={product} />
+                                    <CatalogProductCard key={product.id} product={product} />
                                 ))}
                             </ProductGrid>
 
@@ -204,6 +207,7 @@ export function CatalogPage() {
                     ) : null}
                 </div>
             </main>
+            <CartDrawer />
         </div>
     );
 }
