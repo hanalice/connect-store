@@ -15,6 +15,8 @@
  *   __e2e_tool_unknown__ 工具流（未注册 toolName）：deleteAccount 输出 → fallback 文本
  *   __e2e_tool_hang__   工具流挂起：tool-input-available 后等客户端 abort 关闭连接
  *   __e2e_tool_error__  工具失败：tool-input-available → tool-output-error → finish
+ *   __e2e_cart__        加购流（G3.1）：tool-input-available(addToCart) → [闸门 cart] →
+ *                       tool-output-available({ productId, quantity, product }) → 正文 → finish
  *   其他                 默认快速短回复
  *
  * 闸门：GET /__release 放行全部（存量行为）；GET /__release?gate=<name> 只放行命名闸门。
@@ -276,6 +278,42 @@ async function runToolError(res) {
     finishStream(res);
 }
 
+async function runCart(res) {
+    writeFrame(res, { type: 'start' });
+    writeFrame(res, { type: 'start-step' });
+    writeFrame(res, {
+        type: 'tool-input-available',
+        toolCallId: 'call-cart',
+        toolName: 'addToCart',
+        input: { productId: 'p-cart-1', quantity: 1 },
+    });
+    // 闸门 cart：回执帧前 drawer 保持关闭（E2E-AI-16 自动打开闭环断言点）
+    await waitForRelease(res, 'cart');
+    if (res.writableEnded) return;
+    writeFrame(res, {
+        type: 'tool-output-available',
+        toolCallId: 'call-cart',
+        output: {
+            productId: 'p-cart-1',
+            quantity: 1,
+            product: {
+                id: 'p-cart-1',
+                creator: 'Creator C',
+                title: '付费模板 Gamma',
+                pricingOption: 0,
+                imagePath: '',
+                price: 12.5,
+            },
+        },
+    });
+    writeFrame(res, { type: 'text-start', id: 't1' });
+    await sleep(30);
+    writeFrame(res, { type: 'text-delta', id: 't1', delta: '已把 付费模板 Gamma 加入购物车' });
+    writeFrame(res, { type: 'text-end', id: 't1' });
+    writeFrame(res, { type: 'finish', finishReason: 'stop' });
+    finishStream(res);
+}
+
 function pickScenario(text) {
     if (text.includes('__e2e_gated__')) return runGated;
     if (text.includes('__e2e_hang__')) return runHang;
@@ -286,6 +324,7 @@ function pickScenario(text) {
     if (text.includes('__e2e_tool_error__')) return runToolError;
     if (text.includes('__e2e_tool_ui__')) return runToolUi;
     if (text.includes('__e2e_tool_unknown__')) return runToolUnknown;
+    if (text.includes('__e2e_cart__')) return runCart;
     if (text.includes('__e2e_tool__')) return runTool;
     return runDefault;
 }

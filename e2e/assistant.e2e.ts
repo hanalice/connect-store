@@ -282,3 +282,69 @@ test('E2E-AI-15 未注册 fallback：deleteAccount 输出 → 气泡内无商品
     await expect(bubble).toContainText('未知工具已执行，回复继续');
     await expect(page.getByLabel('消息输入框')).toBeEnabled();
 });
+
+test('E2E-AI-16 加购旅程：addToCart 回执 → drawer 自动打开、条目正确 → 关闭 → badge 计数 → badge 重开（UT-CART-01）', async ({
+    page,
+}) => {
+    await send(page, '__e2e_cart__');
+
+    // 闸门 cart 未放行：回执未达，drawer 保持关闭（自动打开的反向断言）
+    await expect(page.getByRole('dialog', { name: '购物车' })).toHaveCount(0);
+
+    await fetch(`${MOCK_BFF_ORIGIN}/__release?gate=cart`);
+    const drawer = page.getByRole('dialog', { name: '购物车' });
+    await expect(drawer).toBeVisible();
+
+    // 条目断言：标题 / 数量 / 小计（12.5×1）+ 合计联动
+    const row = drawer.getByTestId('cart-item-p-cart-1');
+    await expect(row).toContainText('付费模板 Gamma');
+    await expect(row.getByTestId('cart-quantity')).toHaveText('1');
+    await expect(row.getByTestId('cart-subtotal')).toHaveText('$12.50');
+    await expect(drawer.getByTestId('cart-total')).toHaveText('$12.50');
+    // 气泡内加购确认卡（tool-addToCart registry 分支）
+    await expect(assistantBubble(page).getByTestId('cart-confirm-card')).toContainText(
+        '已加入 1 件「付费模板 Gamma」',
+    );
+
+    // 关闭 drawer → badge 计数（条目数）→ badge 点击重开
+    await drawer.getByRole('button', { name: '关闭购物车' }).click();
+    await expect(drawer).toBeHidden();
+    const badge = page.getByRole('button', { name: '购物车，1 件商品' });
+    await expect(badge).toBeVisible();
+    await badge.click();
+    await expect(page.getByRole('dialog', { name: '购物车' })).toBeVisible();
+    await expect(page.getByLabel('消息输入框')).toBeEnabled();
+});
+
+test('E2E-AI-17 删改与持久化：步进加量 / 删除 → 合计联动 → reload → badge 与 drawer 内容恢复（UT-CART-02/03）', async ({
+    page,
+}) => {
+    await send(page, '__e2e_cart__');
+    await fetch(`${MOCK_BFF_ORIGIN}/__release?gate=cart`);
+    const drawer = page.getByRole('dialog', { name: '购物车' });
+    const row = drawer.getByTestId('cart-item-p-cart-1');
+    await expect(row.getByTestId('cart-quantity')).toHaveText('1');
+
+    // 步进加量：1 → 2，小计 / 合计联动（12.50 → 25.00）
+    await drawer.getByRole('button', { name: '增加 付费模板 Gamma' }).click();
+    await expect(row.getByTestId('cart-quantity')).toHaveText('2');
+    await expect(row.getByTestId('cart-subtotal')).toHaveText('$25.00');
+    await expect(drawer.getByTestId('cart-total')).toHaveText('$25.00');
+
+    // 刷新：persist 恢复——badge 计数与 drawer 内容（数量 2 / 合计 25.00）都在
+    // drawer 开关属 UI 态不持久化（裁决③），reload 后通过 badge 重开
+    await page.reload();
+    const badge = page.getByRole('button', { name: '购物车，1 件商品' });
+    await expect(badge).toBeVisible();
+    await badge.click();
+    const restored = page.getByRole('dialog', { name: '购物车' });
+    const restoredRow = restored.getByTestId('cart-item-p-cart-1');
+    await expect(restoredRow.getByTestId('cart-quantity')).toHaveText('2');
+    await expect(restoredRow.getByTestId('cart-subtotal')).toHaveText('$25.00');
+    await expect(restored.getByTestId('cart-total')).toHaveText('$25.00');
+
+    // 删除单项：合计归零、空态文案出现
+    await restored.getByRole('button', { name: '删除 付费模板 Gamma' }).click();
+    await expect(restored.getByTestId('cart-total')).toHaveText('$0.00');
+    await expect(restored.getByText('购物车是空的')).toBeVisible();
+});

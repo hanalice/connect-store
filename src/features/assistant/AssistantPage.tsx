@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 
 import { ThemeToggle } from '../catalog/components/ThemeToggle';
 import { usePreferenceStore } from '../catalog/store/usePreferenceStore';
+import { CartBadge } from '../cart/components/CartBadge';
+import { CartDrawer } from '../cart/components/CartDrawer';
 import { ChatPanel } from './components/ChatPanel';
 import styles from './AssistantPage.module.scss';
 
@@ -21,12 +23,14 @@ export function AssistantPage() {
                         ← 返回目录
                     </Link>
                     <h1 className={styles.title}>AI 导购助手</h1>
+                    <CartBadge />
                     <ThemeToggle theme={theme} onToggle={toggleTheme} />
                 </div>
             </header>
             <main className={styles.main}>
                 <ChatPanel />
             </main>
+            <CartDrawer />
         </div>
     );
 }

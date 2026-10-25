@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 
+import { useCartStore } from '../../cart/store/useCartStore';
 import { ChatApiError, streamChat } from '../services/chatApi';
+import { addToCartOutputSchema } from '../registry/uiRegistry';
 import {
     isAssistantBusy,
     toRequestMessages,
@@ -178,6 +180,19 @@ export const useAssistantStore = create<AssistantStore>((set, get) => ({
                         });
                         set({ status: currentMachine?.state ?? status });
                         patchToolCall(chunk.toolCallId, { output: chunk.output, endedAt });
+                        // G3.1 增量接线（裁决④）：addToCart 成功回执过 zod 校验 → 合并数量写
+                        // 购物车并自动打开 drawer（裁决⑤ 触发①）；error / 畸形回执校验
+                        // 失败不写。tool-output-available 帧不带 toolName，从已登记的
+                        // toolCall 取（chunk 帧协议见 ai SDK UIMessageChunk）。依赖单向：
+                        // assistant → cart。
+                        if (call?.toolName === 'addToCart') {
+                            const receipt = addToCartOutputSchema.safeParse(chunk.output);
+                            if (receipt.success) {
+                                const cart = useCartStore.getState();
+                                cart.add(receipt.data.product, receipt.data.quantity);
+                                cart.open();
+                            }
+                        }
                     } else if (chunk.type === 'tool-output-error') {
                         if (isStale()) return;
                         const endedAt = performance.now();

@@ -6,6 +6,7 @@ import { ProductCard } from '../../catalog/components/ProductCard';
 import { ProductGrid } from '../../catalog/components/ProductGrid';
 import type { Product } from '../../catalog/types/product';
 import { ApprovalCard } from '../components/ApprovalCard';
+import { CartConfirmCard } from '../components/CartConfirmCard';
 import { PriceBreakdown } from '../components/PriceBreakdown';
 import { ToolError } from '../components/ToolError';
 import styles from './uiRegistry.module.scss';
@@ -46,6 +47,13 @@ const searchCatalogOutputSchema = z.object({
 });
 
 const getProductDetailsOutputSchema = z.object({
+    product: productSchema,
+});
+
+/** addToCart 回执契约（镜像 server/tools/addToCart.ts：成功回执三字段；error 回执先行分流）。 */
+export const addToCartOutputSchema = z.object({
+    productId: z.string(),
+    quantity: z.number().int().positive(),
     product: productSchema,
 });
 
@@ -92,6 +100,17 @@ export const UI_REGISTRY: Record<string, (call: ToolCallOutput) => ReactNode> = 
             return <ToolError title={INVALID_TITLE} message={INVALID_MESSAGE} />;
         }
         return <PriceBreakdown product={parsed.data.product} />;
+    },
+    // G3.1 加购成功确认卡（裁决④）：决策函数纯渲染零副作用，写入只发生在 assistant store
+    'tool-addToCart': (call) => {
+        if (call.error !== undefined) return <ToolError message={call.error} />;
+        const businessError = outputErrorMessage(call.output);
+        if (businessError !== undefined) return <ToolError message={businessError} />;
+        const parsed = addToCartOutputSchema.safeParse(call.output);
+        if (!parsed.success) {
+            return <ToolError title={INVALID_TITLE} message={INVALID_MESSAGE} />;
+        }
+        return <CartConfirmCard product={parsed.data.product} quantity={parsed.data.quantity} />;
     },
     // placeOrder 工具物理不存在，key 先占位防协议漂移；G2.4 仅静态占位（裁决④）
     'tool-placeOrder': () => <ApprovalCard />,

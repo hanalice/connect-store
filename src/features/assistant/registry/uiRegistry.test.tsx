@@ -146,4 +146,40 @@ describe('uiRegistry 白名单分发', () => {
         const button = screen.getByRole('button', { name: '确认下单（即将上线）' });
         expect(button).toBeDisabled();
     });
+
+    it('分支：tool-addToCart 成功回执 → CartConfirmCard（G3.1：件数 / 标题 / 小计）', () => {
+        render(
+            renderToolOutput({
+                toolName: 'addToCart',
+                output: { productId: 'p2', quantity: 2, product: productB },
+            }),
+        );
+        expect(screen.getByTestId('cart-confirm-card')).toBeInTheDocument();
+        expect(screen.getByText('✓ 已加入 2 件「付费模板 Beta」')).toBeInTheDocument();
+        expect(screen.getByText('小计 $25.00')).toBeInTheDocument();
+    });
+
+    it('分支：tool-addToCart 输出体内 error 回执 → ToolError 卡片（error 分流先于 schema）', () => {
+        render(
+            renderToolOutput({
+                toolName: 'addToCart',
+                output: { error: 'product not found: p-x' },
+            }),
+        );
+        expect(screen.getByText('工具执行失败')).toBeInTheDocument();
+        expect(screen.getByText('product not found: p-x')).toBeInTheDocument();
+        expect(screen.queryByTestId('cart-confirm-card')).toBeNull();
+    });
+
+    it('分支：tool-addToCart 畸形回执（quantity 非正整数）→ 内联校验失败指示，不渲染坏数据', () => {
+        render(
+            renderToolOutput({
+                toolName: 'addToCart',
+                output: { productId: 'p2', quantity: 0, product: productB },
+            }),
+        );
+        expect(screen.getByText('输出格式校验失败')).toBeInTheDocument();
+        expect(screen.getByText('已拒绝渲染无效的工具输出')).toBeInTheDocument();
+        expect(screen.queryByTestId('cart-confirm-card')).toBeNull();
+    });
 });

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { UIMessageChunk } from 'ai';
 
 import { ChatApiError } from '../services/chatApi';
+import { useCartStore } from '../../cart/store/useCartStore';
 import { useAssistantStore } from './useAssistantStore';
 
 // mock 传输层：用受控 chunk 序列驱动 store，保证测试确定性（LLM 是不确定依赖）
@@ -77,9 +78,39 @@ const SEARCH_OUTPUT = {
     output: { items: [{ id: 'p1' }], total: 1 },
 } as UIMessageChunk;
 
+/** G3.1 接线测试用的 addToCart 输入帧 / 成功回执帧（镜像 server 契约三字段）。 */
+const CART_PRODUCT = {
+    id: 'p-cart-1',
+    creator: 'Creator C',
+    title: '付费模板 Gamma',
+    pricingOption: 0,
+    imagePath: '',
+    price: 12.5,
+} as const;
+const ADD_TO_CART_INPUT = {
+    type: 'tool-input-available',
+    toolCallId: 'call-cart',
+    toolName: 'addToCart',
+    input: { productId: 'p-cart-1', quantity: 1 },
+} as UIMessageChunk;
+const ADD_TO_CART_OUTPUT = {
+    type: 'tool-output-available',
+    toolCallId: 'call-cart',
+    output: { productId: 'p-cart-1', quantity: 1, product: CART_PRODUCT },
+} as UIMessageChunk;
+const TEXT_TAIL = [
+    { type: 'text-start', id: 't1' },
+    { type: 'text-delta', id: 't1', delta: '回复' },
+    { type: 'text-end', id: 't1' },
+    { type: 'finish', finishReason: 'stop' },
+] as UIMessageChunk[];
+
 describe('useAssistantStore', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        // G3.1：购物车隔离——清 localStorage 并重置 cart store，防接线用例间污染
+        localStorage.clear();
+        useCartStore.setState({ items: [], isOpen: false });
         useAssistantStore.getState().reset();
     });
 
@@ -456,5 +487,62 @@ describe('useAssistantStore', () => {
             'STREAM_END',
         ]);
         expect(warnSpy).not.toHaveBeenCalled();
+    });
+
+    it('G3.1 addToCart 接线（裁决④）：成功回执 → 写入购物车 + drawer 自动打开；重复加购数量合并', async () => {
+        streamChunks([ADD_TO_CART_INPUT, ADD_TO_CART_OUTPUT, ...TEXT_TAIL]);
+        await useAssistantStore.getState().sendMessage('把付费模板 Gamma 加进购物车');
+
+        const cart = useCartStore.getState();
+        expect(cart.items).toHaveLength(1);
+        expect(cart.items[0]).toEqual({ product: CART_PRODUCT, quantity: 1 });
+        expect(cart.isOpen).toBe(true); // 裁决⑤ 触发①：回执成功 drawer 自动打开
+
+        // 同商品再次加购：数量合并不新增条目行（UT-CART-01 接线侧）
+        streamChunks([ADD_TO_CART_INPUT, ADD_TO_CART_OUTPUT, ...TEXT_TAIL]);
+        await useAssistantStore.getState().sendMessage('再买一件');
+        expect(useCartStore.getState().items).toHaveLength(1);
+        expect(useCartStore.getState().items[0].quantity).toBe(2);
+        expect(useCartStore.getState().isOpen).toBe(true);
+    });
+
+    it('G3.1 addToCart 接线：error 回执（product not found）→ 不写购物车、不打开 drawer', async () => {
+        streamChunks([
+            ADD_TO_CART_INPUT,
+            {
+                type: 'tool-output-available',
+                toolCallId: 'call-cart',
+                output: { error: 'product not found: p-x' },
+            } as UIMessageChunk,
+            ...TEXT_TAIL,
+        ]);
+        await useAssistantStore.getState().sendMessage('加一个不存在的东西');
+
+        expect(useCartStore.getState().items).toHaveLength(0);
+        expect(useCartStore.getState().isOpen).toBe(false);
+    });
+
+    it('G3.1 addToCart 接线：zod 校验失败的畸形回执（quantity 非正整数）→ 不写购物车', async () => {
+        streamChunks([
+            ADD_TO_CART_INPUT,
+            {
+                type: 'tool-output-available',
+                toolCallId: 'call-cart',
+                output: { productId: 'p-cart-1', quantity: -1, product: CART_PRODUCT },
+            } as UIMessageChunk,
+            ...TEXT_TAIL,
+        ]);
+        await useAssistantStore.getState().sendMessage('触发畸形回执');
+
+        expect(useCartStore.getState().items).toHaveLength(0);
+        expect(useCartStore.getState().isOpen).toBe(false);
+    });
+
+    it('G3.1 addToCart 接线：非 addToCart 工具（searchCatalog）回执 → 不触发购物车写入', async () => {
+        streamChunks([SEARCH_INPUT, SEARCH_OUTPUT, ...TEXT_TAIL]);
+        await useAssistantStore.getState().sendMessage('找免费素材');
+
+        expect(useCartStore.getState().items).toHaveLength(0);
+        expect(useCartStore.getState().isOpen).toBe(false);
     });
 });

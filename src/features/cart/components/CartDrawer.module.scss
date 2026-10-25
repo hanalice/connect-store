@@ -1,0 +1,223 @@
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 40;
+}
+
+.drawer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: min(420px, 90vw);
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg-panel);
+    border-left: 1px solid var(--color-border);
+    box-shadow: var(--shadow-card);
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+    flex-shrink: 0;
+}
+
+.title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-text-primary);
+}
+
+.closeButton {
+    border: none;
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: 1.4rem;
+    line-height: 1;
+    padding: var(--space-1) var(--space-2);
+    cursor: pointer;
+}
+
+.closeButton:hover {
+    color: var(--color-text-primary);
+}
+
+.empty {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    color: var(--color-text-secondary);
+}
+
+.list {
+    flex: 1;
+    overflow-y: auto;
+    margin: 0;
+    padding: var(--space-3) var(--space-4);
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.item {
+    display: grid;
+    grid-template-columns: 56px 1fr auto;
+    grid-template-areas:
+        'thumb meta stepper'
+        'thumb subtotal remove';
+    gap: var(--space-2);
+    align-items: center;
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.thumb {
+    grid-area: thumb;
+    width: 56px;
+    height: 56px;
+    object-fit: cover;
+    border-radius: 6px;
+}
+
+.thumbPlaceholder {
+    grid-area: thumb;
+    width: 56px;
+    height: 56px;
+    border-radius: 6px;
+    background: var(--color-skeleton-base);
+}
+
+.meta {
+    grid-area: meta;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.itemTitle {
+    color: var(--color-text-primary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.unitPrice {
+    color: var(--color-text-secondary);
+    font-size: 0.8rem;
+}
+
+.stepper {
+    grid-area: stepper;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.stepButton {
+    width: 26px;
+    height: 26px;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    background: var(--color-bg-card);
+    color: var(--color-text-primary);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.quantity {
+    min-width: 20px;
+    text-align: center;
+    color: var(--color-text-primary);
+    font-size: 0.9rem;
+}
+
+.subtotal {
+    grid-area: subtotal;
+    color: var(--color-text-primary);
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.removeButton {
+    grid-area: remove;
+    justify-self: end;
+    border: none;
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 2px var(--space-1);
+}
+
+.removeButton:hover {
+    color: var(--color-text-primary);
+}
+
+.footer {
+    flex-shrink: 0;
+    padding: var(--space-3) var(--space-4);
+    border-top: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+.totalRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: var(--color-text-primary);
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.total {
+    font-size: 1.05rem;
+}
+
+.actions {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.clearButton,
+.checkoutButton {
+    flex: 1;
+    height: var(--control-height);
+    border-radius: 8px;
+    font-size: 0.9rem;
+}
+
+.clearButton {
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-card);
+    color: var(--color-text-primary);
+    cursor: pointer;
+}
+
+.clearButton:disabled {
+    color: var(--color-text-secondary);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.checkoutButton {
+    border: none;
+    background: var(--color-accent);
+    color: var(--color-accent-contrast);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
