@@ -4,12 +4,14 @@
 
 import { addToCartTool } from './addToCart.js';
 import { getProductDetailsTool } from './getProductDetails.js';
+import { placeOrderTool } from './placeOrder.js';
 import { searchCatalogTool } from './searchCatalog.js';
 
 export const toolRegistry = {
     searchCatalog: searchCatalogTool,
     getProductDetails: getProductDetailsTool,
     addToCart: addToCartTool,
+    placeOrder: placeOrderTool,
 } as const;
 
 export type ToolName = keyof typeof toolRegistry;

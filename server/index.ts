@@ -5,6 +5,7 @@ import { cors } from 'hono/cors';
 import type { z } from 'zod';
 import { chatApp } from './chat.js';
 import { env } from './env.js';
+import { orderStore } from './orders.js';
 import { toolRegistry, type ToolName } from './tools/index.js';
 
 const app = new Hono();
@@ -31,10 +32,12 @@ const MAX_BODY_BYTES = 1024 * 1024;
 
 /**
  * dev 工具直调端点：POST /api/tools/:toolName（工具契约的确定性验收面，与 LLM 解耦）。
- * 安全语义：只有同时命中 env.toolsDirectAllow（TOOLS_DIRECT_ALLOW ∩ 注册表 key）的
- * toolName 才放行，其余一律 404（与未知工具同行为，不暴露工具存在性）；
+ * 安全语义：只有同时命中 env.toolsDirectAllow（TOOLS_DIRECT_ALLOW ∩ 注册表 key，
+ * 再剔除 APPROVAL_GATED 审批门控黑名单）的 toolName 才放行，其余一律 404
+ * （与未知工具同行为，不暴露工具存在性）；
  * 生产不设置该变量 = 白名单为空 = 任何工具都不能绕过 HITL 审批被直接调用。
- * 审批门控工具（未来 placeOrder，G3.2）永远不得加入白名单。
+ * 审批门控互斥是代码级检查（env.ts APPROVAL_GATED，裁决⑦）：placeOrder 注册进
+ * 注册表后即使被显式写入 TOOLS_DIRECT_ALLOW 也恒 404 —— vitest 与 curl 双重实证。
  */
 app.post(
     '/api/tools/:toolName',
@@ -85,5 +88,18 @@ app.post(
         return c.json(output, 200);
     },
 );
+
+/**
+ * GET /api/orders/:orderId（G3.2，API-AI-04）：按 orderId 查询订单当前状态。
+ * 惰性过期（design §6.3 判定点②）：pending 超 TTL → 落 expired + 审计后返回；
+ * 未知 orderId 一律 404（不暴露存在性）。断线/刷新后前端可凭 orderId 恢复审批状态。
+ */
+app.get('/api/orders/:orderId', (c) => {
+    const order = orderStore.queryOrder(c.req.param('orderId'), Date.now());
+    if (order === undefined) {
+        return c.json({ error: 'order not found' }, 404);
+    }
+    return c.json(order);
+});
 
 serve({ fetch: app.fetch, port: env.port });

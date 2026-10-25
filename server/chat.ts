@@ -12,6 +12,7 @@ import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
 import { CHAT_SYSTEM_PROMPT } from './chat-prompt.js';
+import { approvalPolicy } from './approvals.js';
 import { env } from './env.js';
 import { toolRegistry } from './tools/index.js';
 
@@ -88,6 +89,12 @@ export const chatApp = new Hono().post(
             // 工具回路：直接引用 G2.1 注册表（A7 唯一一份，禁止复制工具定义）；
             // ai@7 streamText 默认 stopWhen=isStepCount(1) 不跑工具环，须显式放开步数
             tools: toolRegistry,
+            // HITL（G3.2，ADR D9）：SDK 原生 toolApproval 策略 —— placeOrder 恒
+            // 'user-approval'（缺 APPROVAL_SECRET 时策略 denied，工具不执行）；
+            // experimental_toolApprovalSecret 把审批 HMAC 签名绑定到服务端签发的
+            // toolName + toolCallId + input，伪造审批在复放校验期被 SDK 拦截（API-AI-06）。
+            toolApproval: approvalPolicy.toolApproval,
+            experimental_toolApprovalSecret: env.approvalSecret,
             stopWhen: stepCountIs(5),
             timeout: UPSTREAM_TIMEOUT_MS,
             onError: ({ error }) => {
