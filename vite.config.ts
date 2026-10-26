@@ -7,7 +7,9 @@ export default defineConfig({
     server: {
         proxy: {
             '/api': {
-                target: 'http://localhost:8787',
+                // 与 e2e/mock-bff.mjs 的 E2E_MOCK_PORT 同源（默认 8787）：
+                // 非标准端口 harness 下数据面代理必须跟随，否则 /api 502（G4.1 Q-D-01）
+                target: `http://localhost:${process.env.E2E_MOCK_PORT ?? 8787}`,
                 changeOrigin: true,
             },
         },

@@ -31,11 +31,25 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Format check
+        run: npm run format:check
+
       - name: Test
         run: npm run test
+
+      - name: Test BFF
+        run: npm --prefix server run test
 
       - name: Build
         run: npm run build
 
       - name: Typecheck BFF
         run: npm --prefix server run typecheck
+
+      # E2E mock 门禁（裁决② 根因修复后入 CI）：playwright 自拉 vite 5173 + mock 8787
+      # （reuseExistingServer 在 CI 环境恒 false），ubuntu-latest 端口无污染。
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E (mock)
+        run: npm run test:e2e

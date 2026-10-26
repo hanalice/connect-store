@@ -33,7 +33,10 @@
  */
 import http from 'node:http';
 
-const PORT = 8787;
+// 端口可用 E2E_MOCK_PORT 覆盖（默认 8787）：控制面 /__release 与数据面必须同端口，
+// 测试侧 e2e/assistant.e2e.ts 的 MOCK_BFF_ORIGIN 读同一变量——
+// 否则 mock 在非标准端口时闸门放行永远到不了（G4.1 裁决②根因修复）。
+const PORT = Number(process.env.E2E_MOCK_PORT ?? 8787);
 
 /** 闸门等待者与已置位闸门名：release 先到时 wait 立即通过；新对话请求重置置位。 */
 let releaseWaiters = [];

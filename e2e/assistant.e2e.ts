@@ -1,7 +1,8 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
-/** mock BFF 控制面（直连 8787，不走页面代理）：放行 gated 场景的剩余帧。 */
-const MOCK_BFF_ORIGIN = 'http://localhost:8787';
+/** mock BFF 控制面（直连 mock 端口，不走页面代理）：放行 gated 场景的剩余帧。
+ *  端口与 e2e/mock-bff.mjs 的监听端口同源（E2E_MOCK_PORT，默认 8787）。 */
+const MOCK_BFF_ORIGIN = `http://localhost:${process.env.E2E_MOCK_PORT ?? 8787}`;
 
 /** 最后一条 assistant 气泡（消息列表最后一行的气泡容器，选择器不依赖 CSS Module 哈希类名）。 */
 function assistantBubble(page: Page): Locator {

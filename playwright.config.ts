@@ -26,8 +26,9 @@ export default defineConfig({
         },
         {
             command: 'node e2e/mock-bff.mjs',
-            port: 8787,
-            // 8787 被占用（真实 BFF 在跑）时直接报错，绝不静默复用，保证 mock 确定性
+            // 与 mock-bff.mjs 的 E2E_MOCK_PORT 同源（默认 8787），env 覆盖时端口探测保持一致
+            port: Number(process.env.E2E_MOCK_PORT ?? 8787),
+            // 被占用（真实 BFF 在跑）时直接报错，绝不静默复用，保证 mock 确定性
             reuseExistingServer: false,
         },
     ],

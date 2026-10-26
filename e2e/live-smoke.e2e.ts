@@ -31,10 +31,11 @@ test(
             )
             .not.toBe('');
 
-        // 流正常结束：输入框恢复可用，最终文本比起始采样更长（增量渲染，非一次性整段）
+        // 流正常结束：输入框恢复可用；最终文本不短于起始采样（容错口径裁决③：
+        // 增长步数 ≥1 即通过；上游单帧短回复 + 无 reasoning 时首采即全文，等长属合法）
         await expect(page.getByLabel('消息输入框')).toBeEnabled({ timeout: 60_000 });
         const finalText = (await bubble.textContent()) ?? '';
-        expect(finalText.length).toBeGreaterThan(firstText.length);
+        expect(finalText.length).toBeGreaterThanOrEqual(firstText.length);
         await expect(page.getByRole('alert')).toHaveCount(0);
     },
 );
