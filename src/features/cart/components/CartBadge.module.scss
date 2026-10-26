@@ -1,7 +1,10 @@
 .badge {
     display: inline-flex;
     align-items: center;
+    box-sizing: border-box;
     gap: var(--space-1);
+    min-width: var(--control-height);
+    min-height: var(--control-height);
     padding: 6px var(--space-2);
     border: 1px solid var(--color-border);
     border-radius: 8px;
@@ -9,10 +12,16 @@
     color: var(--color-text-primary);
     cursor: pointer;
     flex-shrink: 0;
+    transition: border-color 0.2s ease;
 }
 
 .badge:hover {
     border-color: var(--color-accent);
+}
+
+.badge:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
 }
 
 .count {
@@ -20,4 +29,10 @@
     text-align: center;
     font-size: 0.85rem;
     font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .badge {
+        transition: none;
+    }
 }

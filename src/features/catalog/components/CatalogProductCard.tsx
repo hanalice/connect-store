@@ -1,6 +1,7 @@
 import { useCartStore } from '../../cart/store/useCartStore';
 import type { Product } from '../types/product';
 import { ProductCard } from './ProductCard';
+import { ProductSkeletonCard } from './ProductSkeletonCard';
 import styles from './CatalogProductCard.module.scss';
 
 interface CatalogProductCardProps {
@@ -9,8 +10,8 @@ interface CatalogProductCardProps {
 
 /**
  * 目录页商品卡 wrapper（G3.1a 裁决①）：存量 ProductCard + 加购按钮的兄弟节点组合。
- * 按钮不得作为 ProductCard 的 DOM 后代（卡片本体 role="button"，防嵌套交互语义），
- * 也不遮挡卡片图片 / 价格；accessible name「加入购物车，{title}」供单测与 E2E 按 name 定位。
+ * 按钮不得作为 ProductCard 的 DOM 后代，也不遮挡卡片图片 / 价格；
+ * accessible name「加入购物车，{title}」供单测与 E2E 按 name 定位。
  * 纯消费 useCartStore，零 store 逻辑。
  */
 export function CatalogProductCard({ product }: CatalogProductCardProps) {
@@ -25,6 +26,19 @@ export function CatalogProductCard({ product }: CatalogProductCardProps) {
             >
                 加入购物车
             </button>
+        </div>
+    );
+}
+
+export function CatalogProductSkeletonCard() {
+    return (
+        <div className={styles.wrapper} data-testid="catalog-product-skeleton">
+            <ProductSkeletonCard />
+            <div
+                className={styles.buttonPlaceholder}
+                data-testid="catalog-skeleton-button-placeholder"
+                aria-hidden="true"
+            />
         </div>
     );
 }

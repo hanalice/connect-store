@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 
 import { useCartStore } from '../../cart/store/useCartStore';
 import { PricingOption } from '../types/product';
-import { CatalogProductCard } from './CatalogProductCard';
+import { CatalogProductCard, CatalogProductSkeletonCard } from './CatalogProductCard';
 
 const PRODUCT = {
     id: 'p1',
@@ -40,16 +40,32 @@ describe('CatalogProductCard（G3.1a 目录页加购入口）', () => {
     it('加购按钮非 ProductCard 的 DOM 后代（兄弟节点挂载，无嵌套交互冲突）', () => {
         render(<CatalogProductCard product={PRODUCT} />);
 
-        const card = screen.getByRole('button', {
+        const card = screen.getByRole('article', {
             name: 'Yellow Coat by Adam, price $50.00',
         });
         const addButton = screen.getByRole('button', { name: '加入购物车，Yellow Coat' });
 
-        // accessible name 精确定位两个交互元素，且按钮不是卡片的 DOM 后代
+        // article 与加购按钮是同一 wrapper 下的兄弟节点
         expect(addButton).not.toBe(card);
         expect(card).not.toContainElement(addButton);
         expect(addButton.parentElement).not.toBe(card);
-        // 兄弟节点：卡片与按钮同属一个 wrapper
         expect(card.parentElement).toBe(addButton.parentElement);
+        expect(card.parentElement?.children).toHaveLength(2);
+    });
+
+    it('目录骨架复用商品骨架并提供非交互按钮占位', () => {
+        render(<CatalogProductSkeletonCard />);
+
+        const wrapper = screen.getByTestId('catalog-product-skeleton');
+        const skeleton = screen.getByTestId('product-skeleton');
+        const placeholder = screen.getByTestId('catalog-skeleton-button-placeholder');
+
+        expect(wrapper.children).toHaveLength(2);
+        expect(wrapper.firstElementChild).toBe(skeleton);
+        expect(wrapper.lastElementChild).toBe(placeholder);
+        expect(placeholder).toHaveAttribute('aria-hidden', 'true');
+        expect(placeholder).not.toHaveAttribute('tabindex');
+        expect(placeholder).not.toHaveAttribute('role');
+        expect(screen.queryByRole('button')).not.toBeInTheDocument();
     });
 });

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { useCartStore } from '../store/useCartStore';
 import type { CartItem } from '../types/cart';
 import styles from './CartDrawer.module.scss';
@@ -66,13 +67,85 @@ function DrawerContent() {
     const totalPrice = useCartStore((state) => state.totalPrice());
     const clear = useCartStore((state) => state.clear);
     const close = useCartStore((state) => state.close);
+    const drawerRef = useRef<HTMLElement>(null);
+    const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+    useEffect(() => {
+        const previouslyFocused =
+            document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        closeButtonRef.current?.focus();
+
+        return () => {
+            const canRestorePrevious =
+                previouslyFocused?.isConnected && previouslyFocused !== document.body;
+            const trigger = canRestorePrevious
+                ? previouslyFocused
+                : document.querySelector<HTMLElement>('[aria-controls="cart-drawer"]');
+            trigger?.focus();
+        };
+    }, []);
+
+    useEffect(() => {
+        const drawer = drawerRef.current;
+        const active = document.activeElement;
+        const isDisabledButton = active instanceof HTMLButtonElement && active.disabled;
+        if (drawer && (!drawer.contains(active) || isDisabledButton)) {
+            closeButtonRef.current?.focus();
+        }
+    }, [items]);
+
+    useEffect(() => {
+        const drawer = drawerRef.current;
+        if (!drawer) return;
+
+        function handleKeyDown(event: KeyboardEvent) {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                close();
+                return;
+            }
+            if (event.key !== 'Tab') return;
+
+            const currentDrawer = drawerRef.current;
+            if (!currentDrawer) return;
+
+            const focusable = Array.from(
+                currentDrawer.querySelectorAll<HTMLElement>(
+                    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+                ),
+            );
+            const first = focusable[0];
+            const last = focusable.at(-1);
+            if (!first || !last) return;
+
+            const active = document.activeElement;
+            if (event.shiftKey && (active === first || !currentDrawer.contains(active))) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && (active === last || !currentDrawer.contains(active))) {
+                event.preventDefault();
+                first.focus();
+            }
+        }
+
+        drawer.addEventListener('keydown', handleKeyDown);
+        return () => drawer.removeEventListener('keydown', handleKeyDown);
+    }, [close]);
 
     return (
         <div className={styles.overlay}>
-            <aside className={styles.drawer} role="dialog" aria-modal="true" aria-label="购物车">
+            <aside
+                id="cart-drawer"
+                ref={drawerRef}
+                className={styles.drawer}
+                role="dialog"
+                aria-modal="true"
+                aria-label="购物车"
+            >
                 <header className={styles.header}>
                     <h2 className={styles.title}>购物车（{itemCount} 件）</h2>
                     <button
+                        ref={closeButtonRef}
                         type="button"
                         className={styles.closeButton}
                         aria-label="关闭购物车"

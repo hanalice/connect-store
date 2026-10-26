@@ -33,8 +33,8 @@ describe('uiRegistry 白名单分发', () => {
             }),
         );
 
-        // 真实 ProductCard：role="button" + aria-label 结构（{title} by {creator}, price …）
-        const cards = screen.getAllByRole('button');
+        // 真实 ProductCard：命名 article + aria-label 结构（{title} by {creator}, price …）
+        const cards = screen.getAllByRole('article');
         expect(cards).toHaveLength(2);
         expect(cards[0]).toHaveAttribute('aria-label', '免费素材 Alpha by Creator A, price Free');
         expect(cards[1]).toHaveAttribute('aria-label', '付费模板 Beta by Creator B, price $12.50');
@@ -55,7 +55,7 @@ describe('uiRegistry 白名单分发', () => {
             );
             expect(screen.getByText('暂不支持展示该工具的结果')).toBeInTheDocument();
             // 绝不渲染任意组件：无卡片 / 无 grid / 无错误卡
-            expect(container.querySelectorAll('[role="button"]')).toHaveLength(0);
+            expect(container.querySelectorAll('[role="article"]')).toHaveLength(0);
             expect(container.querySelector('section')).toBeNull();
             unmount();
         }
@@ -74,7 +74,7 @@ describe('uiRegistry 白名单分发', () => {
         expect(screen.getByText('已拒绝渲染无效的工具输出')).toBeInTheDocument();
         // 坏数据不渲染：商品标题与卡片均不存在
         expect(screen.queryByText('免费素材 Alpha')).not.toBeInTheDocument();
-        expect(container.querySelectorAll('[role="button"]')).toHaveLength(0);
+        expect(container.querySelectorAll('[role="article"]')).toHaveLength(0);
     });
 
     it('UT-REG-04 错误边界：注册组件渲染抛错 → ErrorBoundary 捕获、本地化 fallback、对话流不中断', () => {
@@ -100,7 +100,7 @@ describe('uiRegistry 白名单分发', () => {
     it('分支：tool-searchCatalog 空结果 → 复用存量 EmptyState', () => {
         render(renderToolOutput({ toolName: 'searchCatalog', output: { items: [], total: 0 } }));
         expect(screen.getByText('No contents matched your current criteria.')).toBeInTheDocument();
-        expect(screen.queryByRole('button')).not.toBeInTheDocument();
+        expect(screen.queryByRole('article')).not.toBeInTheDocument();
     });
 
     it('分支：tool-searchCatalog 输出体内 error 字段 → ToolError 卡片', () => {

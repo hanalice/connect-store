@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { Product } from '../../catalog/types/product';
 import { useCartStore } from '../store/useCartStore';
+import { CartBadge } from './CartBadge';
 import { CartDrawer } from './CartDrawer';
 
 const productFree: Product = {
@@ -102,5 +103,117 @@ describe('CartDrawer', () => {
         expect(within(drawer).getByTestId('cart-total')).toHaveTextContent('$0.00');
         expect(within(drawer).getByRole('button', { name: '清空购物车' })).toBeDisabled();
         expect(within(drawer).getByRole('button', { name: '去结算（即将上线）' })).toBeDisabled();
+    });
+
+    it('打开后聚焦关闭按钮，空态 Tab 循环，Escape 关闭并恢复 badge 焦点', async () => {
+        const user = userEvent.setup();
+        render(
+            <>
+                <CartBadge />
+                <CartDrawer />
+            </>,
+        );
+        const badge = screen.getByRole('button', { name: '购物车，0 件商品' });
+
+        await user.click(badge);
+        const drawer = screen.getByRole('dialog', { name: '购物车' });
+        const closeButton = within(drawer).getByRole('button', { name: '关闭购物车' });
+        expect(drawer).toHaveAttribute('id', 'cart-drawer');
+        expect(badge).toHaveAttribute('aria-controls', 'cart-drawer');
+        expect(closeButton).toHaveFocus();
+
+        await user.tab();
+        expect(closeButton).toHaveFocus();
+        await user.tab({ shift: true });
+        expect(closeButton).toHaveFocus();
+
+        await user.keyboard('{Escape}');
+        expect(screen.queryByRole('dialog', { name: '购物车' })).not.toBeInTheDocument();
+        expect(badge).toHaveFocus();
+        expect(badge).toHaveAttribute('aria-expanded', 'false');
+    });
+
+    it('有条目时 Shift+Tab 到最后可用控件，Tab 返回首个控件且不逃出对话框', async () => {
+        seedCart();
+        useCartStore.getState().close();
+        const user = userEvent.setup();
+        render(
+            <>
+                <CartBadge />
+                <CartDrawer />
+            </>,
+        );
+        const badge = screen.getByRole('button', { name: '购物车，2 件商品' });
+        await user.click(badge);
+
+        const drawer = screen.getByRole('dialog', { name: '购物车' });
+        const closeButton = within(drawer).getByRole('button', { name: '关闭购物车' });
+        const clearButton = within(drawer).getByRole('button', { name: '清空购物车' });
+        expect(closeButton).toHaveFocus();
+
+        await user.tab({ shift: true });
+        expect(clearButton).toHaveFocus();
+        await user.tab();
+        expect(closeButton).toHaveFocus();
+    });
+
+    it('键盘清空后收容焦点到关闭按钮，Tab 不逃出且 Escape 返回 badge', async () => {
+        seedCart();
+        useCartStore.getState().close();
+        const user = userEvent.setup();
+        render(
+            <>
+                <a href="#assistant">AI 导购</a>
+                <CartBadge />
+                <CartDrawer />
+            </>,
+        );
+        const badge = screen.getByRole('button', { name: '购物车，2 件商品' });
+        await user.click(badge);
+
+        const drawer = screen.getByRole('dialog', { name: '购物车' });
+        const closeButton = within(drawer).getByRole('button', { name: '关闭购物车' });
+        const clearButton = within(drawer).getByRole('button', { name: '清空购物车' });
+        clearButton.focus();
+        await user.keyboard('{Enter}');
+
+        expect(clearButton).toBeDisabled();
+        expect(closeButton).toHaveFocus();
+        await user.tab();
+        expect(closeButton).toHaveFocus();
+        await user.keyboard('{Escape}');
+        expect(screen.queryByRole('dialog', { name: '购物车' })).not.toBeInTheDocument();
+        expect(badge).toHaveFocus();
+    });
+
+    it('键盘删除最后一项后收容焦点，Tab 不到背景链接且 Escape 返回 badge', async () => {
+        useCartStore.getState().add(productPaid, 1);
+        const user = userEvent.setup();
+        render(
+            <>
+                <a href="#assistant">AI 导购</a>
+                <CartBadge />
+                <CartDrawer />
+            </>,
+        );
+        const badge = screen.getByRole('button', { name: '购物车，1 件商品' });
+        await user.click(badge);
+
+        const drawer = screen.getByRole('dialog', { name: '购物车' });
+        const closeButton = within(drawer).getByRole('button', { name: '关闭购物车' });
+        const removeButton = within(drawer).getByRole('button', {
+            name: '删除 付费模板 Beta',
+        });
+        removeButton.focus();
+        await user.keyboard('{Enter}');
+
+        expect(within(drawer).getByText('购物车是空的')).toBeInTheDocument();
+        expect(closeButton).toHaveFocus();
+        await user.tab();
+        expect(closeButton).toHaveFocus();
+        expect(screen.getByRole('link', { name: 'AI 导购' })).not.toHaveFocus();
+        await user.keyboard('{Escape}');
+        expect(screen.queryByRole('dialog', { name: '购物车' })).not.toBeInTheDocument();
+        expect(badge).toHaveFocus();
     });
 });

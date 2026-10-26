@@ -7,6 +7,7 @@ import styles from './CartBadge.module.scss';
  */
 export function CartBadge() {
     const count = useCartStore((state) => state.itemCount());
+    const isOpen = useCartStore((state) => state.isOpen);
     const toggle = useCartStore((state) => state.toggle);
 
     return (
@@ -14,6 +15,8 @@ export function CartBadge() {
             type="button"
             className={styles.badge}
             aria-label={`购物车，${count} 件商品`}
+            aria-expanded={isOpen}
+            aria-controls="cart-drawer"
             onClick={toggle}
         >
             <svg

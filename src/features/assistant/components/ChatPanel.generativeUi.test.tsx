@@ -62,9 +62,9 @@ describe('ChatPanel Generative UI 集成', () => {
         const log = screen.getByRole('log', { name: '对话消息列表' });
         expect(screen.getByText('免费素材 Alpha')).toBeInTheDocument();
         expect(screen.getByText('付费模板 Beta')).toBeInTheDocument();
-        expect(within(log).getAllByRole('button')).toHaveLength(2);
+        expect(within(log).getAllByRole('article')).toHaveLength(2);
         expect(
-            within(log).getByRole('button', {
+            within(log).getByRole('article', {
                 name: '免费素材 Alpha by Creator A, price Free',
             }),
         ).toBeInTheDocument();

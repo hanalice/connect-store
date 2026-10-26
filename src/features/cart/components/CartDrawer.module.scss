@@ -9,8 +9,10 @@
     position: absolute;
     top: 0;
     right: 0;
+    box-sizing: border-box;
     height: 100%;
     width: min(420px, 90vw);
+    max-width: 100vw;
     display: flex;
     flex-direction: column;
     background: var(--color-bg-panel);
@@ -35,6 +37,12 @@
 }
 
 .closeButton {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: var(--control-height);
+    min-height: var(--control-height);
     border: none;
     background: transparent;
     color: var(--color-text-secondary);
@@ -42,6 +50,7 @@
     line-height: 1;
     padding: var(--space-1) var(--space-2);
     cursor: pointer;
+    transition: color 0.2s ease;
 }
 
 .closeButton:hover {
@@ -126,8 +135,13 @@
 }
 
 .stepButton {
-    width: 26px;
-    height: 26px;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    width: var(--control-height);
+    height: var(--control-height);
+    min-width: var(--control-height);
+    min-height: var(--control-height);
+    padding: 0;
     border: 1px solid var(--color-border);
     border-radius: 6px;
     background: var(--color-bg-card);
@@ -135,6 +149,9 @@
     font-size: 1rem;
     line-height: 1;
     cursor: pointer;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease;
 }
 
 .quantity {
@@ -154,12 +171,16 @@
 .removeButton {
     grid-area: remove;
     justify-self: end;
+    box-sizing: border-box;
+    min-width: var(--control-height);
+    min-height: var(--control-height);
     border: none;
     background: transparent;
     color: var(--color-text-secondary);
     font-size: 0.8rem;
     cursor: pointer;
-    padding: 2px var(--space-1);
+    padding: var(--space-2);
+    transition: color 0.2s ease;
 }
 
 .removeButton:hover {
@@ -196,6 +217,8 @@
 .clearButton,
 .checkoutButton {
     flex: 1;
+    box-sizing: border-box;
+    min-height: var(--control-height);
     height: var(--control-height);
     border-radius: 8px;
     font-size: 0.9rem;
@@ -206,6 +229,9 @@
     background: var(--color-bg-card);
     color: var(--color-text-primary);
     cursor: pointer;
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease;
 }
 
 .clearButton:disabled {
@@ -220,4 +246,26 @@
     color: var(--color-accent-contrast);
     cursor: not-allowed;
     opacity: 0.6;
+}
+
+.closeButton,
+.stepButton,
+.removeButton,
+.clearButton,
+.checkoutButton {
+    &:focus-visible {
+        outline: 2px solid var(--color-accent);
+        outline-offset: 2px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .closeButton,
+    .stepButton,
+    .removeButton,
+    .clearButton,
+    .checkoutButton {
+        transition: none;
+        transform: none;
+    }
 }

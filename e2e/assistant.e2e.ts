@@ -246,8 +246,8 @@ test('E2E-AI-14 真实商品卡：searchCatalog 输出 → 气泡内 2 列 Produ
         )
         .toBe(2);
 
-    // 真实 ProductCard（非纯文本）：aria-label 结构 {title} by {creator}, price …
-    const cards = gridSection.locator('[role="button"]');
+    // 真实 ProductCard（非纯文本）：命名 article + aria-label 结构
+    const cards = gridSection.locator('article');
     await expect(cards).toHaveCount(2);
     await expect(cards.nth(0)).toHaveAttribute(
         'aria-label',
@@ -274,7 +274,7 @@ test('E2E-AI-15 未注册 fallback：deleteAccount 输出 → 气泡内无商品
 
     // 白名单外 toolName → 降级 fallback 文本（裁决⑤），绝不渲染任意组件
     await expect(bubble).toContainText('暂不支持展示该工具的结果');
-    await expect(bubble.locator('[role="button"]')).toHaveCount(0);
+    await expect(bubble.locator('article')).toHaveCount(0);
     await expect(bubble.locator('section')).toHaveCount(0);
 
     // 过程卡仍在（裁决③：过程归面板），回复正常完成
@@ -379,12 +379,12 @@ test('E2E-AI-18 目录页加购入口：page.route 回放远程商品 → 加购
     );
 
     await page.goto('/#/');
-    // 回放数据落卡：存量 ProductCard 形态（role="button" + aria-label）
+    // 回放数据落卡：存量 ProductCard 命名 article + aria-label
     await expect(
-        page.getByRole('button', { name: '目录回放 A by Creator A, price Free' }),
+        page.getByRole('article', { name: '目录回放 A by Creator A, price Free' }),
     ).toBeVisible();
     await expect(
-        page.getByRole('button', { name: '目录回放 B by Creator B, price $12.50' }),
+        page.getByRole('article', { name: '目录回放 B by Creator B, price $12.50' }),
     ).toBeVisible();
 
     // 加购入口：wrapper 兄弟节点按钮，accessible name「加入购物车，{title}」

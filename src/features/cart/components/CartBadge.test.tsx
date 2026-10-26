@@ -28,11 +28,15 @@ describe('CartBadge', () => {
         // 0 也显示（coder 定的锁定形态）：accessible name 含计数，数字文本可见
         const badge = screen.getByRole('button', { name: '购物车，0 件商品' });
         expect(within(badge).getByText('0')).toBeInTheDocument();
+        expect(badge).toHaveAttribute('aria-controls', 'cart-drawer');
+        expect(badge).toHaveAttribute('aria-expanded', 'false');
 
         await user.click(badge);
         expect(useCartStore.getState().isOpen).toBe(true);
+        expect(badge).toHaveAttribute('aria-expanded', 'true');
         await user.click(screen.getByRole('button', { name: '购物车，0 件商品' }));
         expect(useCartStore.getState().isOpen).toBe(false);
+        expect(badge).toHaveAttribute('aria-expanded', 'false');
 
         // 加购后计数联动（条目数 = 合并后条目行数）
         act(() => {
