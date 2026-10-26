@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
+import { HashRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { Product } from '../../catalog/types/product';
@@ -55,7 +56,12 @@ describe('ChatPanel Generative UI 集成', () => {
             ],
         });
 
-        render(<ChatPanel />);
+        // G3.4：ChatPanel 横幅含 react-router Link，需 Router 上下文（HashRouter 与线上一致）
+        render(
+            <HashRouter>
+                <ChatPanel />
+            </HashRouter>,
+        );
 
         // 命中：气泡内联真实 ProductCard（标题 / aria-label 结构）；composer 的
         // 「发送」按钮在消息列表外，卡片计数须在 log 作用域内断言

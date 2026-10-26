@@ -919,3 +919,197 @@ describe('useAssistantStore G3.3 审批接线（裁决③④⑤）', () => {
         expect(mockStreamChat).toHaveBeenCalledTimes(1);
     });
 });
+
+describe('useAssistantStore G3.4 失败恢复（裁决①②）', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        localStorage.clear();
+        useCartStore.setState({ items: [], isOpen: false });
+        useAssistantStore.getState().reset();
+    });
+
+    it('失败恢复：error 落态存 lastFailedText，retryLast 重发原消息（error→idle→thinking，RETRY+USER_SEND 两事件记日志）', async () => {
+        // 首回合：streaming 中流错误（streaming+ERROR 在表内，machine 真实落 error 态）
+        mockStreamChat.mockImplementationOnce(async ({ onChunk }: StreamChatOptions) => {
+            onChunk({ type: 'text-start', id: 't1' } as UIMessageChunk);
+            onChunk({ type: 'text-delta', id: 't1', delta: '前半段' } as UIMessageChunk);
+            throw new ChatApiError('stream', '上游模型服务错误（HTTP 500）');
+        });
+        await useAssistantStore.getState().sendMessage('推荐免费的素材');
+        expect(useAssistantStore.getState().status).toBe('error');
+        expect(useAssistantStore.getState().error).toContain('上游模型服务错误');
+        expect(useAssistantStore.getState().lastFailedText).toBe('推荐免费的素材');
+
+        // 点重试：重发原消息的新回合，正常走完
+        streamChunks([
+            { type: 'text-start', id: 't2' },
+            { type: 'text-delta', id: 't2', delta: '恢复后的回复' },
+            { type: 'text-end', id: 't2' },
+            { type: 'finish', finishReason: 'stop' },
+        ] as UIMessageChunk[]);
+        await useAssistantStore.getState().retryLast();
+
+        const state = useAssistantStore.getState();
+        expect(state.status).toBe('done');
+        expect(state.lastFailedText).toBeNull(); // 重发成功后清除
+        // 新回合 = 重发的 user 消息 + 新 assistant 消息对
+        expect(state.messages).toHaveLength(4);
+        expect(state.messages[2]).toMatchObject({ role: 'user', text: '推荐免费的素材' });
+        expect(state.messages[3]?.text).toBe('恢复后的回复');
+        // 请求体重发的是原消息文本
+        expect(mockStreamChat.mock.calls[1][0].messages.at(-1)).toEqual({
+            role: 'user',
+            parts: [{ type: 'text', text: '推荐免费的素材' }],
+        });
+
+        // error → idle（RETRY）→ thinking（USER_SEND）两事件记日志（G2.3 裁决① 两事件路径）
+        const machine = mockCreateMachine.mock.results[0]?.value;
+        expect(machine.state).toBe('done');
+        expect(machine.log.map((entry: { event: string }) => entry.event)).toEqual([
+            'USER_SEND',
+            'STREAM_START',
+            'ERROR',
+            'RETRY',
+            'USER_SEND',
+            'STREAM_START',
+            'STREAM_END',
+        ]);
+        expect(machine.log[3]).toMatchObject({ from: 'error', to: 'idle', event: 'RETRY' });
+        expect(machine.log[4]).toMatchObject({ from: 'idle', to: 'thinking', event: 'USER_SEND' });
+    });
+
+    it('retryLast 守卫：仅 error 态可重试——aborted / done 态调用为 no-op，不重发（aborted 三约束①：无重试语义）', async () => {
+        // aborted 态：取消 ≠ 失败，无重试语义
+        mockStreamChat.mockImplementation(
+            ({ signal }: StreamChatOptions) =>
+                new Promise<void>((_resolve, reject) => {
+                    signal.addEventListener('abort', () => {
+                        reject(new DOMException('Aborted', 'AbortError'));
+                    });
+                }),
+        );
+        const first = useAssistantStore.getState().sendMessage('第一条');
+        useAssistantStore.getState().abort();
+        await first;
+        expect(useAssistantStore.getState().status).toBe('aborted');
+
+        await useAssistantStore.getState().retryLast();
+        expect(mockStreamChat).toHaveBeenCalledTimes(1); // no-op：未发新请求
+        expect(useAssistantStore.getState().status).toBe('aborted');
+
+        // done 态：回合已成功，重试无意义
+        streamChunks([
+            { type: 'text-start', id: 't1' },
+            { type: 'text-delta', id: 't1', delta: '正常回复' },
+            { type: 'text-end', id: 't1' },
+            { type: 'finish', finishReason: 'stop' },
+        ] as UIMessageChunk[]);
+        await useAssistantStore.getState().sendMessage('第二条');
+        expect(useAssistantStore.getState().status).toBe('done');
+        await useAssistantStore.getState().retryLast();
+        expect(mockStreamChat).toHaveBeenCalledTimes(2); // 仍 no-op
+        expect(useAssistantStore.getState().messages).toHaveLength(4);
+    });
+
+    it('裁决① 主流 catch：审批 pending 中流错误 → 保位 await_human + approval 保留 + 无 error 横幅 + 卡内提示', async () => {
+        // 多步回合：正文 → 下单工具 → 审批请求（pending）→ error chunk（流错误发生在审批 pending 中）
+        mockStreamChat.mockImplementation(async ({ onChunk }: StreamChatOptions) => {
+            onChunk({ type: 'text-start', id: 't1' } as UIMessageChunk);
+            onChunk(ORDER_INPUT);
+            onChunk(ORDER_APPROVAL);
+            throw new ChatApiError('stream', '上游模型服务错误（HTTP 500）');
+        });
+        await useAssistantStore.getState().sendMessage('帮我下单');
+
+        const state = useAssistantStore.getState();
+        expect(state.status).toBe('await_human'); // 保位：不回写 error 态
+        expect(state.error).toBeNull(); // banner 不现
+        expect(state.approval).toMatchObject({ approvalId: 'appr-1', phase: 'pending' }); // 审批卡保留
+        expect(state.approvalNotice).toBe('操作失败，可重试'); // 卡内最小提示
+        expect(state.lastFailedText).toBeNull(); // 仅非 pending 路径存重试文本
+
+        // 保位不发 ERROR 路径事件（machine 只到 APPROVAL_REQUEST，无 ERROR entry）
+        const machine = mockCreateMachine.mock.results[0]?.value;
+        expect(machine.log.map((entry: { event: string }) => entry.event)).toEqual([
+            'USER_SEND',
+            'STREAM_START',
+            'APPROVAL_REQUEST',
+        ]);
+
+        // 卡仍可有效决策：approve → 回放成功 → done（server 侧审批未被流错误作废）
+        mockStreamChat.mockImplementation(async ({ onChunk }: StreamChatOptions) => {
+            onChunk({
+                type: 'tool-output-available',
+                toolCallId: 'call-order-1',
+                output: { orderId: 'ord-1', orderNumber: 'order-test01', amount: 25 },
+            } as UIMessageChunk);
+            onChunk({ type: 'text-start', id: 't2' } as UIMessageChunk);
+            onChunk({
+                type: 'text-delta',
+                id: 't2',
+                delta: '订单已提交，订单号 order-test01。',
+            } as UIMessageChunk);
+            onChunk({ type: 'text-end', id: 't2' } as UIMessageChunk);
+            onChunk({ type: 'finish', finishReason: 'stop' } as UIMessageChunk);
+        });
+        useAssistantStore.getState().approve();
+        await vi.waitFor(() => {
+            expect(useAssistantStore.getState().status).toBe('done');
+        });
+        expect(useAssistantStore.getState().approvalNotice).toBeNull(); // 决策后清提示
+        expect(useAssistantStore.getState().messages.at(-1)?.text).toContain('order-test01');
+    });
+
+    it('裁决① 回放 catch：edit 重发后新审批 pending 中流错误 → 保位 await_human + 新卡保留 + 卡内提示', async () => {
+        await reachAwaitHuman();
+
+        // 第一轮回放（edit）：新 toolCall 登记 + 新审批挂起（pending），随后流错误
+        mockStreamChat.mockImplementationOnce(async ({ onChunk }: StreamChatOptions) => {
+            onChunk({
+                type: 'tool-input-available',
+                toolCallId: 'call-edit-1',
+                toolName: 'placeOrder',
+                input: { items: [{ productId: 'p-order-2', quantity: 1 }] },
+            } as UIMessageChunk);
+            onChunk({
+                type: 'tool-approval-request',
+                approvalId: 'appr-2',
+                toolCallId: 'call-edit-1',
+                reason: 'placeOrder requires approval',
+                signature: 'sig-2',
+            } as UIMessageChunk);
+            throw new ChatApiError('stream', '上游模型服务错误（HTTP 500）');
+        });
+        useAssistantStore.getState().editOrder([{ productId: 'p-order-2', quantity: 1 }]);
+
+        await vi.waitFor(() => {
+            expect(useAssistantStore.getState().approvalNotice).toBe('操作失败，可重试');
+        });
+        const state = useAssistantStore.getState();
+        expect(state.status).toBe('await_human'); // 保位：新卡不被流错误顶掉
+        expect(state.error).toBeNull();
+        expect(state.approval).toMatchObject({ approvalId: 'appr-2', phase: 'pending' });
+
+        // 新卡仍可完成订单：approve → 第二轮回放成功 → done
+        mockStreamChat.mockImplementationOnce(async ({ onChunk }: StreamChatOptions) => {
+            onChunk({
+                type: 'tool-output-available',
+                toolCallId: 'call-edit-1',
+                output: { orderId: 'ord-2', orderNumber: 'order-edit02', amount: 7.5 },
+            } as UIMessageChunk);
+            onChunk({ type: 'text-start', id: 't3' } as UIMessageChunk);
+            onChunk({
+                type: 'text-delta',
+                id: 't3',
+                delta: '订单已提交，订单号 order-edit02。',
+            } as UIMessageChunk);
+            onChunk({ type: 'text-end', id: 't3' } as UIMessageChunk);
+            onChunk({ type: 'finish', finishReason: 'stop' } as UIMessageChunk);
+        });
+        useAssistantStore.getState().approve();
+        await vi.waitFor(() => {
+            expect(useAssistantStore.getState().status).toBe('done');
+        });
+        expect(useAssistantStore.getState().messages.at(-1)?.text).toContain('order-edit02');
+    });
+});

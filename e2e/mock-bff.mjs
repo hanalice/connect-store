@@ -23,6 +23,9 @@
  *                       + 订单号文本；approved:false → tool-output-denied + 修正文本）；
  *                       新 toolCall part（input-available）→ 新 tool-input-available +
  *                       新 tool-approval-request（新审批挂起）
+ *   __e2e_order_fail__  订单审批流错误变体（G3.4，有状态分流）：首请求审批挂起后推 error chunk
+ *                       （流错误发生在审批 pending 中，保位实证场景，E2E-AI-24）；
+ *                       审批决策续流复用 __e2e_order__ 的 approved / denied 回执分流
  *   其他                 默认快速短回复
  *
  * 闸门：GET /__release 放行全部（存量行为）；GET /__release?gate=<name> 只放行命名闸门。
@@ -456,6 +459,48 @@ function runOrderScenario(res, raw) {
     return runOrderInitial(res);
 }
 
+/**
+ * G3.4 E2E-AI-24（有状态分流，纯新增）：首请求 = __e2e_order__ 同款审批挂起，
+ * 但审批请求帧后推 error chunk——流错误发生在审批 pending 中（前端保位 await_human 实证场景）；
+ * 审批决策后的续流复用 __e2e_order__ 的 approved / denied 回执分流。
+ */
+async function runOrderFailInitial(res) {
+    writeFrame(res, { type: 'start' });
+    writeFrame(res, { type: 'start-step' });
+    writeFrame(res, { type: 'text-start', id: 't1' });
+    await sleep(50);
+    writeFrame(res, { type: 'text-delta', id: 't1', delta: '已为你选好 2 件商品，请确认订单。' });
+    writeFrame(res, { type: 'text-end', id: 't1' });
+    writeFrame(res, {
+        type: 'tool-input-available',
+        toolCallId: 'call-order-1',
+        toolName: 'placeOrder',
+        input: { items: ORDER_ITEMS },
+    });
+    writeFrame(res, {
+        type: 'tool-approval-request',
+        approvalId: 'appr-e2e-1',
+        toolCallId: 'call-order-1',
+        reason: 'placeOrder requires approval',
+        signature: 'e2e-sig-1',
+    });
+    await sleep(50);
+    writeFrame(res, { type: 'error', errorText: '上游模型服务错误（HTTP 500）' });
+    finishStream(res);
+}
+
+/** __e2e_order_fail__ 分流：首请求审批后流错误；含审批响应的续请求走订单回执/拒绝。 */
+function runOrderFailScenario(res, raw) {
+    const toolParts = extractToolParts(raw);
+    const responded = toolParts.find((p) => p.state === 'approval-responded');
+    if (responded !== undefined) {
+        return responded.approval?.approved === true
+            ? runOrderApproved(res, responded.toolCallId)
+            : runOrderDenied(res);
+    }
+    return runOrderFailInitial(res);
+}
+
 function pickScenario(text, raw) {
     if (text.includes('__e2e_gated__')) return runGated;
     if (text.includes('__e2e_hang__')) return runHang;
@@ -467,6 +512,7 @@ function pickScenario(text, raw) {
     if (text.includes('__e2e_tool_ui__')) return runToolUi;
     if (text.includes('__e2e_tool_unknown__')) return runToolUnknown;
     if (text.includes('__e2e_cart__')) return runCart;
+    if (text.includes('__e2e_order_fail__')) return (res) => runOrderFailScenario(res, raw);
     if (text.includes('__e2e_order__')) return (res) => runOrderScenario(res, raw);
     if (text.includes('__e2e_tool__')) return runTool;
     return runDefault;

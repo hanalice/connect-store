@@ -565,3 +565,90 @@ test('E2E-AI-21 edit 重新发起：卡内改数量 / 移除条目 → 新 toolC
     await expect(badge).toHaveText('已完成');
     await expect(page.getByLabel('消息输入框')).toBeEnabled();
 });
+
+test('E2E-AI-22 错误恢复：route.abort → error 横幅含重试按钮 + 降级链接 → 点重试重发原消息新回合正常回复', async ({
+    page,
+}) => {
+    // 第一次请求断网（abort），其后放行（模拟「断网 → 恢复」）
+    let chatCount = 0;
+    await page.route('**/api/chat', (route) => {
+        chatCount += 1;
+        if (chatCount === 1) {
+            route.abort();
+        } else {
+            route.continue();
+        }
+    });
+
+    await send(page, '断网后重试的原始问题');
+    const alert = page.getByRole('alert');
+    await expect(alert).toContainText('无法连接服务器');
+    // 重试按钮 + 降级链接（裁决②③）
+    await expect(page.getByRole('button', { name: '重试' })).toBeVisible();
+    await expect(page.getByRole('link', { name: '或回目录手动选购 →' })).toHaveAttribute(
+        'href',
+        '#/',
+    );
+
+    // 点重试：重发原消息的新回合，正常回复（请求 2 已放行）
+    await page.getByRole('button', { name: '重试' }).click();
+    await expect(page.getByRole('log').getByText('断网后重试的原始问题')).toHaveCount(2);
+    await expect(assistantBubble(page)).toContainText('你好，我是 AI 导购助手。');
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(page.getByLabel('消息输入框')).toBeEnabled();
+
+    // 降级链接点击跳转目录页（恢复路径之外的兜底出口）
+    await page.unroute('**/api/chat');
+    await page.route('**/api/chat', (route) => route.abort());
+    await send(page, '再次断网的问题');
+    await expect(page.getByRole('alert')).toContainText('无法连接服务器');
+    await page.getByRole('link', { name: '或回目录手动选购 →' }).click();
+    await expect(page).toHaveURL(/#\/$/);
+});
+
+test('E2E-AI-23 中断恢复：hang 场景点停止 → aborted 横幅无重试按钮 + 降级链接 → 直发新消息正常回复', async ({
+    page,
+}) => {
+    await send(page, '__e2e_hang__');
+    await expect(assistantBubble(page)).toContainText('这段回复尚未完成，');
+
+    await page.getByRole('button', { name: '停止' }).click();
+    // 取消 ≠ 失败：aborted 横幅在、无错误横幅、无重试按钮（aborted 三约束①）
+    await expect(page.getByText('已停止生成，可继续发送新消息')).toBeVisible();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: '重试' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: '或回目录手动选购 →' })).toHaveAttribute(
+        'href',
+        '#/',
+    );
+
+    // 恢复 = 直发新消息（aborted + USER_SEND → thinking，表内 #20 边）
+    await send(page, '继续聊聊');
+    await expect(assistantBubble(page)).toContainText('你好，我是 AI 导购助手。');
+    await expect(page.getByLabel('消息输入框')).toBeEnabled();
+});
+
+test('E2E-AI-24 审批中断恢复：审批 pending 中流错误 → 保位 await_human（无错误横幅 + 卡内提示）→ 卡仍可决策完成订单（裁决①）', async ({
+    page,
+}) => {
+    await routeOrderProducts(page);
+    const badge = page.getByRole('status', { name: '助手状态' });
+
+    // 首请求：审批挂起后流推 error chunk（断网/上游错误发生在审批 pending 中）
+    await send(page, '__e2e_order_fail__');
+    await expect(badge).toHaveText('等待确认');
+    const card = page.getByTestId('approval-card');
+    await expect(card).toBeVisible();
+
+    // 保位实证：无错误横幅、状态停驻 await_human、审批卡保留 + 卡内最小提示
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    await expect(card).toContainText('操作失败，可重试');
+    await expect(page.getByLabel('消息输入框')).toBeDisabled();
+
+    // 恢复：server 侧审批仍有效，卡决策（approve）→ 续跑完成订单闭环
+    await card.getByRole('button', { name: '确认下单' }).click();
+    await expect(page.getByTestId('order-result-card')).toContainText('订单号：order-e2e0001');
+    await expect(assistantBubble(page)).toContainText('订单号 order-e2e0001');
+    await expect(badge).toHaveText('已完成');
+    await expect(page.getByLabel('消息输入框')).toBeEnabled();
+});

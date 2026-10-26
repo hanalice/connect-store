@@ -22,6 +22,8 @@ interface ApprovalCardProps {
     phase: ApprovalCardPhase;
     /** reject 决策原因（phase=rejected 时展示）。 */
     decisionReason?: string;
+    /** G3.4 裁决①：审批 pending 遇流错误时的卡内最小提示（如「操作失败，可重试」）。 */
+    notice?: string | null;
     onApprove: () => void;
     onReject: (reason: string) => void;
     onEditConfirm: (items: { productId: string; quantity: number }[]) => void;
@@ -57,6 +59,7 @@ export function ApprovalCard({
     requestReason,
     phase,
     decisionReason,
+    notice,
     onApprove,
     onReject,
     onEditConfirm,
@@ -118,6 +121,11 @@ export function ApprovalCard({
             </div>
 
             {requestReason ? <p className={styles.reason}>{requestReason}</p> : null}
+            {notice ? (
+                <p className={styles.notice} data-testid="approval-notice">
+                    {notice}
+                </p>
+            ) : null}
 
             {mode === 'edit' ? (
                 <>

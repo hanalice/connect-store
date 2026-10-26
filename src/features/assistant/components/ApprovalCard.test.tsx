@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -122,5 +122,28 @@ describe('ApprovalCard（G3.3 裁决② 整体替换：props 驱动纯展示 + �
         const user = userEvent.setup();
         await user.click(screen.getByRole('button', { name: '取消订单' }));
         expect(props.onCancel).toHaveBeenCalledTimes(1);
+    });
+
+    it('INT-HITL-04 fake-timer 归零：TTL 倒计时真实走到 0 → 决策按钮禁用 + 「已过期，请重新发起」', () => {
+        vi.useFakeTimers();
+        try {
+            renderCard({ expiresAt: Date.now() + 3_000 });
+            // 初始未过期：倒计时展示中
+            expect(screen.getByText(/剩余 0:0\d/)).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: '确认下单' })).toBeEnabled();
+
+            // 推进 1s 级 interval 越过 TTL 截止：归零路径真实触发（非直接造过期态）
+            act(() => {
+                vi.advanceTimersByTime(3_100);
+            });
+            expect(screen.getByText('已过期，请重新发起')).toBeInTheDocument();
+            expect(screen.getByRole('button', { name: '确认下单' })).toBeDisabled();
+            expect(screen.getByRole('button', { name: '拒绝' })).toBeDisabled();
+            expect(screen.getByRole('button', { name: '修改' })).toBeDisabled();
+            // 取消订单是退出路径，保持可用（G3.3 裁决⑦口径）
+            expect(screen.getByRole('button', { name: '取消订单' })).toBeEnabled();
+        } finally {
+            vi.useRealTimers();
+        }
     });
 });

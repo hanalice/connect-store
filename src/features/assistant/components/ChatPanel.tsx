@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 
 import { isAssistantBusy } from '../types/assistant';
 import { useAssistantStore } from '../state/useAssistantStore';
@@ -21,24 +22,44 @@ export function ChatPanel() {
         error,
         approval,
         approvalSuperseded,
+        approvalNotice,
         sendMessage,
         abort,
         approve,
         reject,
         editOrder,
         cancelOrder,
+        retryLast,
     } = useAssistantStore();
     const [draft, setDraft] = useState('');
     const listRef = useRef<HTMLDivElement | null>(null);
     const stickToBottomRef = useRef(true);
     /** 上次 effect 吸附后的 scrollTop：用于识别「位置已变但 scroll 事件尚未派发」的竞态窗口。 */
     const lastScrollTopRef = useRef(0);
+    /** A11Y-05：composer 输入框 ref——审批决策/取消后焦点归还目标。 */
+    const composerInputRef = useRef<HTMLInputElement | null>(null);
+    /** A11Y-05：审批卡宿主 ref——卡出现时焦点移入卡内首个可交互元素的查询挂点。 */
+    const approvalHostRef = useRef<HTMLDivElement | null>(null);
 
     // isBusy 四态口径（裁决②）：thinking / streaming / tool_calling / tool_result，对应 USER_ABORT 四条边
     const isBusy = isAssistantBusy(status);
     // G3.3 裁决⑤：await_human 期间输入由审批卡承接（sendMessage 侧同口径拒绝）
     const isAwaitHuman = status === 'await_human';
     const inputLocked = isBusy || isAwaitHuman;
+
+    // A11Y-05 焦点管理（G3.4 附带项，PM 归属裁决④）：审批卡 pending 出现时焦点移入卡内
+    // 首个可交互元素（键盘/读屏用户直达决策区）；决策/取消后归还 composer（等输入解锁——
+    // 决策后回放期 composer 仍锁定，focus 落在禁用元素上是空操作，故随 inputLocked 解锁再归还）。
+    // E2E 不断言焦点（Playwright 焦点断言易 flake），由单测锁 document.activeElement。
+    useEffect(() => {
+        if (approval?.phase === 'pending') {
+            const firstInteractive =
+                approvalHostRef.current?.querySelector<HTMLElement>('button:not(:disabled)');
+            firstInteractive?.focus();
+        } else if (!inputLocked) {
+            composerInputRef.current?.focus();
+        }
+    }, [approval?.phase, inputLocked]);
 
     // 审批卡条目解析：标题 / 现价取目录快照（裁决③ 展示值；最终以 server 实时计价为准）。
     // 审批到达时目录可能未加载（直开 assistant 页）——按需拉取一次，响应式重渲染。
@@ -157,18 +178,21 @@ export function ChatPanel() {
                                             </p>
                                         ) : null}
                                         {approval !== null && message.id === approval.messageId ? (
-                                            <ApprovalCard
-                                                items={approvalItems}
-                                                approvalId={approval.approvalId}
-                                                expiresAt={approval.expiresAt}
-                                                requestReason={approval.requestReason}
-                                                phase={approval.phase}
-                                                decisionReason={approval.decisionReason}
-                                                onApprove={approve}
-                                                onReject={reject}
-                                                onEditConfirm={editOrder}
-                                                onCancel={cancelOrder}
-                                            />
+                                            <div ref={approvalHostRef}>
+                                                <ApprovalCard
+                                                    items={approvalItems}
+                                                    approvalId={approval.approvalId}
+                                                    expiresAt={approval.expiresAt}
+                                                    requestReason={approval.requestReason}
+                                                    phase={approval.phase}
+                                                    decisionReason={approval.decisionReason}
+                                                    notice={approvalNotice}
+                                                    onApprove={approve}
+                                                    onReject={reject}
+                                                    onEditConfirm={editOrder}
+                                                    onCancel={cancelOrder}
+                                                />
+                                            </div>
                                         ) : null}
                                         {message.text ? (
                                             <StreamingText
@@ -194,12 +218,25 @@ export function ChatPanel() {
 
             {status === 'error' && error ? (
                 <div className={styles.errorBanner} role="alert">
-                    {error}
+                    <span>{error}</span>
+                    <button
+                        type="button"
+                        className={styles.retryButton}
+                        onClick={() => void retryLast()}
+                    >
+                        重试
+                    </button>
+                    <Link className={styles.degradeLink} to="/">
+                        或回目录手动选购 →
+                    </Link>
                 </div>
             ) : null}
             {status === 'aborted' ? (
                 <div className={styles.abortedBanner} role="status">
-                    已停止生成，可继续发送新消息
+                    <span>已停止生成，可继续发送新消息</span>
+                    <Link className={styles.degradeLink} to="/">
+                        或回目录手动选购 →
+                    </Link>
                 </div>
             ) : null}
 
@@ -208,6 +245,7 @@ export function ChatPanel() {
             <form className={styles.composer} onSubmit={handleSubmit}>
                 <input
                     className={styles.input}
+                    ref={composerInputRef}
                     type="text"
                     value={draft}
                     onChange={(event) => setDraft(event.target.value)}

@@ -38,6 +38,10 @@ interface AssistantStore {
     approval: ApprovalRequestState | null;
     /** edit 重新发起后旧卡的失效提示（旧 messageId + 文案；新卡替换旧卡的渲染投影）。 */
     approvalSuperseded: { messageId: string; note: string } | null;
+    /** G3.4：error 落态时存原用户消息文本（仅非 pending 路径），供「重试」重发。 */
+    lastFailedText: string | null;
+    /** G3.4 裁决①：审批 pending 遇流错误时卡内最小提示（保位不回写 error 态）。 */
+    approvalNotice: string | null;
     sendMessage: (text: string) => Promise<void>;
     abort: () => void;
     reset: () => void;
@@ -46,6 +50,8 @@ interface AssistantStore {
     reject: (reason: string) => void;
     editOrder: (items: ApprovalItem[]) => void;
     cancelOrder: () => void;
+    /** G3.4 裁决②：error 态重试——重发 lastFailedText 原消息（内部走 RETRY + USER_SEND 两事件路径）。 */
+    retryLast: () => Promise<void>;
 }
 
 let currentController: AbortController | null = null;
@@ -160,6 +166,12 @@ export const useAssistantStore = create<AssistantStore>((set, get) => {
             if (currentController !== null && currentController.signal !== signal) {
                 return;
             }
+            // G3.4 裁决①：回放流被取消/出错时新审批 pending（edit 重发挂起）→ 保位 await_human，
+            // 卡保留、不回写 error/aborted（决策/取消的续跑是新请求，不依赖已死的流）
+            if (get().approval?.phase === 'pending') {
+                set({ approvalNotice: '操作失败，可重试' });
+                return;
+            }
             if (isAbortError(error) || signal.aborted) {
                 set({ status: 'aborted', error: null });
                 return;
@@ -167,10 +179,15 @@ export const useAssistantStore = create<AssistantStore>((set, get) => {
             const message =
                 error instanceof ChatApiError ? error.message : '发生未知错误，请稍后重试';
             const sent = sendMachineEvent(ASSISTANT_EVENT.Error);
+            const lastUser = [...get().messages].reverse().find((m) => m.role === 'user');
             if (sent) {
-                set({ status: currentMachine?.state ?? 'error', error: message });
+                set({
+                    status: currentMachine?.state ?? 'error',
+                    error: message,
+                    lastFailedText: lastUser?.text ?? null,
+                });
             } else {
-                set({ status: 'error', error: message });
+                set({ status: 'error', error: message, lastFailedText: lastUser?.text ?? null });
             }
         } finally {
             if (currentController?.signal === signal) {
@@ -233,6 +250,7 @@ export const useAssistantStore = create<AssistantStore>((set, get) => {
                 // 表缺口兜底（裁决⑥）：edit 重发后 tool_calling + APPROVAL_REQUEST 不在表内，
                 // 查表静默跳过后 store 直设 await_human（机器滞留 tool_calling，收尾兜底兜 done）
                 status: 'await_human',
+                approvalNotice: null, // 新审批到达：清掉上一张卡的流错误提示（G3.4 裁决①）
                 approval: {
                     approvalId: chunk.approvalId,
                     toolCallId: chunk.toolCallId,
@@ -329,6 +347,8 @@ export const useAssistantStore = create<AssistantStore>((set, get) => {
         error: null,
         approval: null,
         approvalSuperseded: null,
+        lastFailedText: null,
+        approvalNotice: null,
 
         async sendMessage(text) {
             const trimmed = text.trim();
@@ -371,7 +391,7 @@ export const useAssistantStore = create<AssistantStore>((set, get) => {
             const { signal } = currentController;
 
             // USER_SEND 的合法落点恒为 thinking；被表跳过（缺口兜底）时直设 thinking 保证 UI 不死锁
-            set({ messages: nextMessages, status: 'thinking', error: null });
+            set({ messages: nextMessages, status: 'thinking', error: null, lastFailedText: null });
 
             /** 代际/取消校验：旧代际流或已取消流的收尾不得触碰 machine 与新状态（A4 裁决①）。 */
             const isStale = () => signal.aborted || currentController?.signal !== signal;
@@ -408,6 +428,13 @@ export const useAssistantStore = create<AssistantStore>((set, get) => {
                 if (currentController !== null && currentController.signal !== signal) {
                     return;
                 }
+                // G3.4 裁决①：流错误/取消发生在审批 pending 中（多步回合审批挂起后流仍开）→
+                // 保位 await_human：不回写 error/aborted、不发 ERROR 事件，审批卡保留（server 侧审批
+                // 仍有效，决策/取消的续跑是新请求）；卡内落最小提示「操作失败，可重试」
+                if (get().approval?.phase === 'pending') {
+                    set({ approvalNotice: '操作失败，可重试' });
+                    return;
+                }
                 if (isAbortError(error) || signal.aborted) {
                     // 主动取消 ≠ 失败：停驻 aborted，不显示重试（design §5 取消语义）
                     set({ status: 'aborted', error: null });
@@ -417,11 +444,15 @@ export const useAssistantStore = create<AssistantStore>((set, get) => {
                     error instanceof ChatApiError ? error.message : '发生未知错误，请稍后重试';
                 const sent = sendMachineEvent(ASSISTANT_EVENT.Error);
                 if (sent) {
-                    set({ status: currentMachine?.state ?? 'error', error: message });
+                    set({
+                        status: currentMachine?.state ?? 'error',
+                        error: message,
+                        lastFailedText: trimmed,
+                    });
                 } else {
                     // 表缺口兜底（报告 §三）：thinking / tool_result 无 ERROR 边（如首帧前的网络失败），
                     // machine 滞留原态，store 直设 error 保证横幅与输入恢复；machine 续跑见回合开头注释
-                    set({ status: 'error', error: message });
+                    set({ status: 'error', error: message, lastFailedText: trimmed });
                 }
             } finally {
                 if (currentController?.signal === signal) {
@@ -439,6 +470,7 @@ export const useAssistantStore = create<AssistantStore>((set, get) => {
             sendMachineEvent(ASSISTANT_EVENT.Approve, { tool: approval.toolName });
             set({
                 approval: { ...approval, phase: 'approved' },
+                approvalNotice: null, // G3.4 裁决①：用户已重新决策，清掉流错误提示
                 status: currentMachine?.state ?? 'tool_calling',
             });
             // 回放：历史 + assistant 消息含 tool-approval-response part（approved:true，裁决④）
@@ -462,6 +494,7 @@ export const useAssistantStore = create<AssistantStore>((set, get) => {
             sendMachineEvent(ASSISTANT_EVENT.Reject, { result: trimmed });
             set({
                 approval: { ...approval, phase: 'rejected', decisionReason: trimmed },
+                approvalNotice: null,
                 status: currentMachine?.state ?? 'thinking',
             });
             // 回放：approval-response part 带 reason（ai@7 part 支持 reason，类型核对结论，裁决④）
@@ -492,6 +525,7 @@ export const useAssistantStore = create<AssistantStore>((set, get) => {
             set({
                 approval: { ...approval, phase: 'edited' },
                 approvalSuperseded: { messageId: approval.messageId, note: '已修改并重新发起' },
+                approvalNotice: null,
                 status: currentMachine?.state ?? 'tool_calling',
             });
             // 重发形态（裁决③）：不发审批响应 —— 新 toolCall part（新 toolCallId + 修改后 items）
@@ -521,12 +555,21 @@ export const useAssistantStore = create<AssistantStore>((set, get) => {
             if (approval?.phase === 'pending') {
                 set({
                     approval: { ...approval, phase: 'cancelled' },
+                    approvalNotice: null,
                     status: 'aborted',
                     error: null,
                 });
             } else {
-                set({ status: 'aborted', error: null });
+                set({ status: 'aborted', error: null, approvalNotice: null });
             }
+        },
+
+        async retryLast() {
+            const { status, lastFailedText } = get();
+            // G3.4 裁决②：仅 error 态可重试（aborted 无重试语义，design §5 三约束①）；
+            // 内部复用既有「error 先 RETRY 再 USER_SEND」两事件路径（G2.3 裁决①），不新造机器事件
+            if (status !== 'error' || lastFailedText === null) return;
+            await get().sendMessage(lastFailedText);
         },
 
         reset() {
@@ -539,6 +582,8 @@ export const useAssistantStore = create<AssistantStore>((set, get) => {
                 error: null,
                 approval: null,
                 approvalSuperseded: null,
+                lastFailedText: null,
+                approvalNotice: null,
             });
         },
     };
