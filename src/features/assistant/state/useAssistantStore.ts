@@ -389,11 +389,14 @@ export const useAssistantStore = create<AssistantStore>((set, get) => {
                 if (sendMachineEvent(ASSISTANT_EVENT.StreamEnd)) {
                     set({ status: currentMachine?.state ?? 'done' }); // streaming→done
                 } else if (
-                    currentMachine?.state === 'thinking' ||
-                    currentMachine?.state === 'tool_calling' ||
-                    currentMachine?.state === 'tool_result'
+                    (currentMachine?.state === 'thinking' ||
+                        currentMachine?.state === 'tool_calling' ||
+                        currentMachine?.state === 'tool_result') &&
+                    get().approval?.phase !== 'pending'
                 ) {
-                    // 表缺口兜底（报告 §三）：空回复等场景忙碌态无 STREAM_END 边，回合已成功结束，store 直设 done
+                    // 表缺口兜底（报告 §三）：空回复等场景忙碌态无 STREAM_END 边，回合已成功结束，store 直设
+                    // done；审批 pending 时不顶 await_human（多步回合 tool_calling + APPROVAL_REQUEST
+                    // 缺口，live 实测：搜索→下单两工具时 machine 滞留 tool_calling，live 2026-10-26 复现修复）
                     set({ status: 'done' });
                 } else if (get().approval?.phase === 'pending') {
                     // 审批挂起（hang but safe 已解除）：STREAM_END 在 await_human 无出边（查表跳过），

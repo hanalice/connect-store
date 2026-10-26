@@ -625,6 +625,27 @@ describe('useAssistantStore G3.3 审批接线（裁决③④⑤）', () => {
         expect(machine.log[2]).toMatchObject({ from: 'streaming', to: 'await_human' });
     });
 
+    it('多步回合（先搜索后下单）：approval-request 时 machine 滞留 tool_calling，收尾兜底不得顶掉 await_human（live 2026-10-26 复现回归）', async () => {
+        // 模型先 searchCatalog（TOOL_CALL/TOOL_RESULT）再 placeOrder —— 审批帧到达时
+        // machine 在 tool_calling（APPROVAL_REQUEST 表缺口，store 兜底 await_human）；
+        // 流收尾时 machine 仍滞留 tool_calling：忙碌态兜底必须让位审批 pending
+        streamChunks([
+            SEARCH_INPUT,
+            SEARCH_OUTPUT,
+            ORDER_INPUT,
+            ORDER_APPROVAL,
+            { type: 'finish', finishReason: 'tool-calls' },
+        ] as UIMessageChunk[]);
+        await useAssistantStore.getState().sendMessage('找免费素材并下单');
+
+        const state = useAssistantStore.getState();
+        expect(state.status).toBe('await_human'); // 不得被收尾兜底顶成 done
+        expect(state.approval).toMatchObject({ approvalId: 'appr-1', phase: 'pending' });
+        // 审批卡可操作：compose 锁定语义成立（abort 可取消）
+        useAssistantStore.getState().cancelOrder();
+        expect(useAssistantStore.getState().status).toBe('aborted');
+    });
+
     it('await_human 期间发送新消息被拒（输入由审批卡承接，防表缺口死锁）', async () => {
         await reachAwaitHuman();
         await useAssistantStore.getState().sendMessage('换个话题');
