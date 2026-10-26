@@ -54,4 +54,53 @@ describe('ProductCard Component', () => {
         expect(screen.getByText(/\$0\.00/i)).toBeInTheDocument();
         expect(screen.getByLabelText(/price \$0\.00/i)).toBeInTheDocument();
     });
+
+    it('renders a named article without button semantics or a card tab stop', () => {
+        render(<ProductCard product={mockProduct} />);
+
+        const card = screen.getByRole('article', {
+            name: 'Test Product by Test Creator, price $99.90',
+        });
+        expect(card).not.toHaveAttribute('tabindex');
+        expect(screen.queryByRole('button', { name: /test product/i })).not.toBeInTheDocument();
+    });
+
+    it('keeps complete title and creator text available from keyboard-focusable tooltips', () => {
+        const longProduct = {
+            ...mockProduct,
+            title: 'An exceptionally detailed product title that remains complete',
+            creator: 'A creator with an exceptionally long display name',
+        };
+        const { container } = render(<ProductCard product={longProduct} />);
+
+        const title = screen.getByRole('heading', { name: longProduct.title });
+        const creator = screen.getByText(longProduct.creator);
+        const titleTrigger = title.parentElement!;
+        const creatorTrigger = creator.parentElement!;
+        const titleTooltip = document.getElementById(
+            titleTrigger.getAttribute('aria-describedby')!,
+        );
+        const creatorTooltip = document.getElementById(
+            creatorTrigger.getAttribute('aria-describedby')!,
+        );
+
+        expect(container.querySelector('details')).toBeNull();
+        expect(container.querySelector('summary')).toBeNull();
+        for (const trigger of [titleTrigger, creatorTrigger]) {
+            expect(trigger.tagName).toBe('DIV');
+            expect(trigger).toHaveAttribute('tabindex', '0');
+            expect(trigger).not.toHaveAttribute('role');
+            expect(trigger).not.toHaveAttribute('aria-expanded');
+            expect(trigger).not.toHaveAttribute('aria-haspopup');
+        }
+        expect(titleTooltip).toHaveAttribute('role', 'tooltip');
+        expect(creatorTooltip).toHaveAttribute('role', 'tooltip');
+        expect(titleTooltip).toHaveAttribute('data-full-text', longProduct.title);
+        expect(creatorTooltip).toHaveAttribute('data-full-text', longProduct.creator);
+
+        titleTrigger.focus();
+        expect(titleTrigger).toHaveFocus();
+        creatorTrigger.focus();
+        expect(creatorTrigger).toHaveFocus();
+    });
 });

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { PRICING_LABEL, PricingOption, type Product } from '../types/product';
 import styles from './ProductCard.module.scss';
 
@@ -8,13 +8,13 @@ interface ProductCardProps {
 
 export function ProductCard({ product }: ProductCardProps) {
     const [imgError, setImgError] = useState(false);
+    const titleTooltipId = useId();
+    const creatorTooltipId = useId();
     const pricingLabel = PRICING_LABEL[product.pricingOption];
 
     return (
-        <div
+        <article
             className={styles.card}
-            tabIndex={0}
-            role="button"
             aria-label={`${product.title} by ${product.creator}, price ${
                 product.pricingOption === PricingOption.PAID
                     ? '$' + (product.price ?? 0).toFixed(2)
@@ -58,8 +58,38 @@ export function ProductCard({ product }: ProductCardProps) {
             )}
             <div className={styles.metaRow}>
                 <div className={styles.meta}>
-                    <h3 className={styles.title}>{product.title}</h3>
-                    <p className={styles.creator}>{product.creator}</p>
+                    <div className={styles.textWithTooltip}>
+                        <div
+                            className={styles.textTrigger}
+                            ref={(element) => element?.setAttribute('tabindex', '0')}
+                            aria-describedby={titleTooltipId}
+                        >
+                            <h3 className={styles.title}>{product.title}</h3>
+                        </div>
+                        <span
+                            id={titleTooltipId}
+                            className={styles.tooltip}
+                            role="tooltip"
+                            aria-label={product.title}
+                            data-full-text={product.title}
+                        />
+                    </div>
+                    <div className={styles.textWithTooltip}>
+                        <div
+                            className={styles.textTrigger}
+                            ref={(element) => element?.setAttribute('tabindex', '0')}
+                            aria-describedby={creatorTooltipId}
+                        >
+                            <span className={styles.creator}>{product.creator}</span>
+                        </div>
+                        <span
+                            id={creatorTooltipId}
+                            className={styles.tooltip}
+                            role="tooltip"
+                            aria-label={product.creator}
+                            data-full-text={product.creator}
+                        />
+                    </div>
                 </div>
                 <div className={styles.priceInfo}>
                     {product.pricingOption === PricingOption.PAID ? (
@@ -71,6 +101,6 @@ export function ProductCard({ product }: ProductCardProps) {
                     )}
                 </div>
             </div>
-        </div>
+        </article>
     );
 }
