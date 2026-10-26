@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { PRICING_LABEL, PricingOption, type Product } from '../types/product';
 import styles from './ProductCard.module.scss';
 
@@ -6,10 +6,141 @@ interface ProductCardProps {
     product: Product;
 }
 
+interface TruncatedTextProps {
+    text: string;
+    className: string;
+    heading?: boolean;
+}
+
+function TruncatedText({ text, className, heading = false }: TruncatedTextProps) {
+    const [isTruncated, setIsTruncated] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
+    const [isDismissed, setIsDismissed] = useState(false);
+    const textRef = useRef<HTMLElement>(null);
+    const triggerRef = useRef<HTMLDivElement>(null);
+    const tooltipId = useId();
+
+    useEffect(() => {
+        let isMounted = true;
+        const measure = () => {
+            const element = textRef.current;
+            if (!isMounted || !element) return;
+
+            const truncated = element.scrollWidth > element.clientWidth;
+            setIsTruncated(truncated);
+            if (!truncated) {
+                setIsOpen(false);
+                setIsDismissed(false);
+            }
+        };
+
+        measure();
+        const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+        if (textRef.current) observer?.observe(textRef.current);
+        if (triggerRef.current) observer?.observe(triggerRef.current);
+
+        const fonts = document.fonts;
+        void fonts?.ready.then(measure);
+        fonts?.addEventListener('loadingdone', measure);
+
+        return () => {
+            isMounted = false;
+            observer?.disconnect();
+            fonts?.removeEventListener('loadingdone', measure);
+        };
+    }, [text]);
+
+    useEffect(() => {
+        const trigger = triggerRef.current;
+        if (!trigger) return;
+        if (isTruncated) trigger.setAttribute('tabindex', '0');
+        else trigger.removeAttribute('tabindex');
+    }, [isTruncated]);
+
+    useEffect(() => {
+        const trigger = triggerRef.current;
+        if (!trigger) return;
+
+        function handleKeyDown(event: KeyboardEvent) {
+            if (event.key !== 'Escape' || !isOpen) return;
+            event.preventDefault();
+            event.stopPropagation();
+            setIsOpen(false);
+            setIsDismissed(true);
+        }
+
+        trigger.addEventListener('keydown', handleKeyDown);
+        return () => trigger.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen]);
+
+    function openTooltip() {
+        if (isTruncated && !isDismissed) setIsOpen(true);
+    }
+
+    return (
+        <div
+            className={styles.textWithTooltip}
+            onMouseEnter={openTooltip}
+            onMouseLeave={(event) => {
+                if (
+                    event.relatedTarget instanceof Node &&
+                    event.currentTarget.contains(event.relatedTarget)
+                )
+                    return;
+                setIsDismissed(false);
+                if (!event.currentTarget.contains(document.activeElement)) setIsOpen(false);
+            }}
+            onBlur={(event) => {
+                if (
+                    event.relatedTarget instanceof Node &&
+                    event.currentTarget.contains(event.relatedTarget)
+                )
+                    return;
+                setIsOpen(false);
+                setIsDismissed(false);
+            }}
+        >
+            <div
+                ref={triggerRef}
+                className={styles.textTrigger}
+                aria-describedby={isTruncated ? tooltipId : undefined}
+                onFocus={openTooltip}
+            >
+                {heading ? (
+                    <h3
+                        ref={(element) => {
+                            textRef.current = element;
+                        }}
+                        className={className}
+                    >
+                        {text}
+                    </h3>
+                ) : (
+                    <span
+                        ref={(element) => {
+                            textRef.current = element;
+                        }}
+                        className={className}
+                    >
+                        {text}
+                    </span>
+                )}
+            </div>
+            {isTruncated ? (
+                <span
+                    id={tooltipId}
+                    className={`${styles.tooltip}${isOpen ? ` ${styles.tooltipVisible}` : ''}`}
+                    role="tooltip"
+                >
+                    {text}
+                </span>
+            ) : null}
+        </div>
+    );
+}
+
 export function ProductCard({ product }: ProductCardProps) {
     const [imgError, setImgError] = useState(false);
-    const titleTooltipId = useId();
-    const creatorTooltipId = useId();
     const pricingLabel = PRICING_LABEL[product.pricingOption];
 
     return (
@@ -43,7 +174,6 @@ export function ProductCard({ product }: ProductCardProps) {
                             height="28"
                             fill="none"
                             stroke="currentColor"
-                            strokeWidth="1.5"
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             aria-hidden="true"
@@ -58,38 +188,8 @@ export function ProductCard({ product }: ProductCardProps) {
             )}
             <div className={styles.metaRow}>
                 <div className={styles.meta}>
-                    <div className={styles.textWithTooltip}>
-                        <div
-                            className={styles.textTrigger}
-                            ref={(element) => element?.setAttribute('tabindex', '0')}
-                            aria-describedby={titleTooltipId}
-                        >
-                            <h3 className={styles.title}>{product.title}</h3>
-                        </div>
-                        <span
-                            id={titleTooltipId}
-                            className={styles.tooltip}
-                            role="tooltip"
-                            aria-label={product.title}
-                            data-full-text={product.title}
-                        />
-                    </div>
-                    <div className={styles.textWithTooltip}>
-                        <div
-                            className={styles.textTrigger}
-                            ref={(element) => element?.setAttribute('tabindex', '0')}
-                            aria-describedby={creatorTooltipId}
-                        >
-                            <span className={styles.creator}>{product.creator}</span>
-                        </div>
-                        <span
-                            id={creatorTooltipId}
-                            className={styles.tooltip}
-                            role="tooltip"
-                            aria-label={product.creator}
-                            data-full-text={product.creator}
-                        />
-                    </div>
+                    <TruncatedText text={product.title} className={styles.title} heading />
+                    <TruncatedText text={product.creator} className={styles.creator} />
                 </div>
                 <div className={styles.priceInfo}>
                     {product.pricingOption === PricingOption.PAID ? (
