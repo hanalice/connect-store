@@ -48,9 +48,9 @@
 
 .searchButton {
     position: absolute;
-    right: 8px;
-    width: 36px;
-    height: 36px;
+    right: 0;
+    width: var(--control-height);
+    height: var(--control-height);
     padding: 0;
     margin: 0;
     border: none;
@@ -81,4 +81,16 @@
 
 .searchIcon {
     pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .input,
+    .searchButton {
+        transition: none;
+    }
+
+    .searchButton:hover,
+    .searchButton:active {
+        transform: none;
+    }
 }

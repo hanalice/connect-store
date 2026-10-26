@@ -66,3 +66,15 @@
     transform: scale(0) rotate(-90deg);
     opacity: 0;
 }
+
+@media (prefers-reduced-motion: reduce) {
+    .toggleButton,
+    .icon {
+        transition: none;
+    }
+
+    .toggleButton:hover,
+    .toggleButton:active {
+        transform: none;
+    }
+}

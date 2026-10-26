@@ -308,7 +308,7 @@ describe('CatalogPage Integration', () => {
         const skeletons = screen.queryAllByTestId('product-skeleton');
         expect(skeletons.length).toBe(0);
 
-        const products = screen.getAllByRole('button', { name: /price/i });
+        const products = screen.getAllByRole('article', { name: /price/i });
         // Since search happened, visibleCount was reset to initialChunkSize,
         // and filtered count is 1.
         expect(products.length).toBe(1);
