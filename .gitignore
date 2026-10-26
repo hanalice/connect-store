@@ -24,3 +24,9 @@ Thumbs.db
 *.swp
 *.swo
 *.tsbuildinfo
+
+.agent-hub-assets/
+.agent-hub.lock
+.agents/
+.cursor/
+test-results/
