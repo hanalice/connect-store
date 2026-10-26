@@ -12,6 +12,10 @@
     box-shadow: var(--shadow-card);
 }
 
+.card:has(.tooltipVisible) {
+    z-index: 20;
+}
+
 .image,
 .imagePlaceholder {
     flex: 0 0 220px;
@@ -117,7 +121,7 @@
     z-index: 20;
     box-sizing: border-box;
     width: max-content;
-    max-width: min(320px, calc(100vw - var(--space-5) * 2));
+    max-width: min(320px, 100%);
     padding: var(--space-2);
     color: var(--color-text-primary);
     background: var(--color-bg-panel);
@@ -134,16 +138,12 @@
         opacity 0.15s ease,
         transform 0.15s ease,
         visibility 0.15s;
-
-    &::after {
-        content: attr(data-full-text);
-    }
 }
 
-.textTrigger:hover + .tooltip,
-.textTrigger:focus-visible + .tooltip {
+.tooltipVisible {
     opacity: 1;
     visibility: visible;
+    pointer-events: auto;
     transform: translateY(0);
 }
 
