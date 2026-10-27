@@ -191,8 +191,30 @@ connect-store/
 
 ---
 
+## D11：HITL edit 重发 —— 修正意图作新用户回合、模型重新发起（2026-10-27 追加，撤销 G3.3 裁决③的协议形态）
+
+**背景**：G3.3 的 edit 设计是「不发审批响应、前端伪造新 toolCall part（新 toolCallId + 修改后 input）重放 `/api/chat`」，动机是**参数零篡改 + 确定性**（下单参数由用户在审批卡亲手敲定，不经模型）。mock E2E（E2E-AI-21）与单测全绿。2026-10-27 H2 demo 走查首次 live 验证该路径：**100% 必现失败**——ai@7 SDK 在本地 `convertToLanguageModelPrompt` 强制校验「历史里每个 toolCall 必有对应 tool result」，伪造的调用在请求到达模型前即抛 `AI_MissingToolResultsError`（HTTP status unknown，前端只见兜底文案「上游模型服务异常」）。mock 全绿的原因：mock BFF 按场景标记回放剧本，**不执行真 SDK 的提示词转换**；单测只验前端消息构造。根因 = 协议层不兼容，非模型/key/网络问题。
+
+**主流做法（实读文档，非推测）**：
+
+- **SDK 原生面只有 approve/deny**（[AI SDK HITL cookbook](https://ai-sdk.dev/cookbook/next/human-in-the-loop)、[OpenAI Agents SDK HITL](https://openai.github.io/openai-agents-python/human_in_the_loop/)）：`addToolApprovalResponse({approved})` 是协议内动作；**edit 不在官方协议里**。
+- **企业级确定性 edit = 编排状态层编辑**（[LangGraph interrupt/resume](https://docs.langchain.com/oss/python/langchain/frontend/human-in-the-loop)）：`interrupt()` 暂停 → 人在图状态里直接改 toolCall 参数 → `Command(update)` 恢复 → 框架按人改参数执行。LLM 历史全程不被伪造，确定性与协议兼容同时成立——**前提是状态化编排层**（服务端会话 + checkpoint + resume 协议）。
+- **无状态约束下的业界标配（本决策采纳）**：edit 不伪造消息，把「修正后的下单意图」作为**新的用户回合**进入官方消息流，由模型重新调用 placeOrder → SDK 原生 toolApproval 再次挂起出新审批卡。确定性不靠协议靠**护栏组合**：prompt 硬约束（用户给出明确商品+数量时直接 placeOrder、勿反问——cookbook 防 deny 重试的同款 instructions 手段）+ zod input schema 校验 + **二次审批卡人工复核**（模型改错参数用户看得见、能再 edit）+ error 恢复兜底。
+
+**决策**：edit 重发改为方案 B。协议层与 approve/reject 对齐（全部走官方 UI 消息流），**不引入编排状态层**（与 D8「不发明协议」、无状态 BFF 的架构立场一致）。G3.3 的「参数零篡改」目标从协议保证降级为二次审批卡人工复核保证。
+
+**理由**：
+
+- 原设计 live 可用性为 0%，且无法在 SDK 内补救（校验在 provider 调用前的本地转换层，伪造 toolCall + 补假 result 会使 placeOrder 语义拧巴、HMAC 审批链对不上）。
+- 模式一（LangGraph 式）要推翻「无状态 BFF + 官方消息流」两个已签核架构决策，Showcase 不值当；若未来演进为企业级 agent，这是正路，届时作为新 feature 级变更复审。
+- 方案 B 改动面小：前端 `editOrder` 消息构造 + prompt 一句约束 + mock 剧本按标记回放，状态机/store 零改动。
+
+**代价**：edit→新卡不再是确定性 100%（模型可能拖答/调错参/不调工具），靠护栏补偿并如实写入口径；mock 剧本与用户消息标记需同步改（E2E-AI-21 保持确定性测试形态）。
+
+---
+
 ## 后果与权衡（Consequences）
 
 - **正面**：结构简单、部署清晰（静态前端 + 无状态 BFF 分离）、面试叙事有「克制」的架构判断。
 - **负面**：若未来 Showcase 扩展出第 3、4 个共享模块的包，需重新评估是否迁移 monorepo——迁移成本届时递增，故本 ADR 需在「新增第 3 个包」时强制复审。
-- **v0.4 新增负面**：决策面从 7 条扩到 10 条，其中 D6 被撤销 —— 这正是本 ADR 的用法：**拍板 = 可复审**，每次修订保留原决策与撤销理由，供面试溯源"为什么改"（这比"一开始就全对"更可信）。
+- **v0.4 新增负面**：决策面从 7 条扩到 11 条，其中 D6 被撤销、G3.3 edit 协议形态被 D11 取代 —— 这正是本 ADR 的用法：**拍板 = 可复审**，每次修订保留原决策与撤销理由，供面试溯源"为什么改"（这比"一开始就全对"更可信）。
