@@ -320,6 +320,17 @@ export const useAssistantStore = create<AssistantStore>((set, get) => {
                     cart.open();
                 }
             }
+            // G3.3c 裁决② 执行扣减：placeOrder 成功回执触点（tool-output-available = 执行成功
+            // 回执帧；error/denied 走各自分支不扣）。数据源 = 客户端被 approve 那张卡的 items
+            // （审批记录，按 toolCallId 关联）——placeOrder 输出帧 {orderId, orderNumber, amount}
+            // 无 items 字段，不得以输出帧为据；查无审批记录（刷新后回放等无据场景）→ 跳过
+            // 扣减，不无据写 cart。不自动开 drawer、无任何 UI 行为变更（裁决③）。
+            if (call?.toolName === 'placeOrder') {
+                const approval = get().approval;
+                if (approval !== null && approval.toolCallId === chunk.toolCallId) {
+                    useCartStore.getState().deductExecutedItems(approval.items);
+                }
+            }
         } else if (chunk.type === 'tool-output-denied') {
             if (isStale()) return;
             const endedAt = performance.now();
@@ -605,6 +616,13 @@ export const useAssistantStore = create<AssistantStore>((set, get) => {
                 error: null,
                 lastFailedText: null,
             });
+
+            // G3.3c 裁决① edit 同步（与 superseded 投影同处 = editOrder 确认点；PM 修订窄读）：
+            // cart 按修改后 draft items 对齐，作用域 = 被 edit 那张卡的原订单 items（approval.items）
+            // ——draft 含 → 数量直写对齐；原订单含而 draft 不含（edit 移除）→ 删行；订单外 cart 行
+            // （含 await_human 期间手动加购）一律保留，align 永不新增（Q-D-01 回归锁）。
+            // 依赖单向 assistant → cart，订单链路不越界代写。
+            useCartStore.getState().alignWithOrderItems(approval.items, items);
 
             void runStreamTurn(
                 requestMessages,

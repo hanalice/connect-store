@@ -995,6 +995,120 @@ describe('useAssistantStore G3.3 审批接线（裁决③④⑤）', () => {
         expect(useAssistantStore.getState().messages.at(-1)?.text).toContain('order-edit02');
     });
 
+    it('G3.3c edit 同步（裁决①，PM 修订窄读）：editOrder 确认点 → 订单内对齐数量 + 移除删行；订单外手动加购行保留（Q-D-01 回归锁）', async () => {
+        await reachAwaitHuman();
+        // 预置购物车（await_human 期间手动加购 p-cart-1 属订单外行）：
+        // p-order-1 ×5（原订单含，draft 改 ×2 → 对齐）、p-order-2 ×1（原订单含，draft 移除 → 删行）、
+        // p-cart-1 ×1（订单外 → 必须保留）
+        const products = useCatalogStore.getState().products;
+        const productOrder1 = products.find((product) => product.id === 'p-order-1')!;
+        const productOrder2 = products.find((product) => product.id === 'p-order-2')!;
+        useCartStore.getState().add(productOrder1, 5);
+        useCartStore.getState().add(productOrder2, 1);
+        useCartStore.getState().add(CART_PRODUCT, 1);
+        expect(useCartStore.getState().items).toHaveLength(3);
+
+        // 第二回合（edit 重发）：模型纯文本回复（D11 代价口径），回合收尾 done
+        mockStreamChat.mockImplementation(async ({ onChunk }: StreamChatOptions) => {
+            onChunk({ type: 'text-start', id: 't2' } as UIMessageChunk);
+            onChunk({
+                type: 'text-delta',
+                id: 't2',
+                delta: '已按新清单重新发起。',
+            } as UIMessageChunk);
+            onChunk({ type: 'text-end', id: 't2' } as UIMessageChunk);
+            onChunk({ type: 'finish', finishReason: 'stop' } as UIMessageChunk);
+        });
+        // 修改后 draft：p-order-1 数量改为 2、移除 p-order-2（editOrder 入参 = 审批卡 draft items；
+        // align 作用域 = 被 edit 卡的原订单 items，即 approval.items）
+        useAssistantStore.getState().editOrder([{ productId: 'p-order-1', quantity: 2 }]);
+        await vi.waitFor(() => {
+            expect(useAssistantStore.getState().status).toBe('done');
+        });
+
+        // editOrder 确认点（与 superseded 投影同处）cart 已按窄读语义对齐：
+        // p-order-1 ×5→×2（draft 对齐）；p-order-2 删行（原订单含而 draft 移除）；
+        // p-cart-1 订单外行保留（Q-D-01 回归锁：手动加购不被 edit 误删）
+        const { items, isOpen } = useCartStore.getState();
+        expect(items).toEqual([
+            { product: productOrder1, quantity: 2 },
+            { product: CART_PRODUCT, quantity: 1 },
+        ]);
+        expect(items.some((item) => item.product.id === 'p-order-2')).toBe(false);
+        expect(isOpen).toBe(false); // 裁决③：edit 同步无任何 UI 行为变更（不自动开 drawer）
+    });
+
+    it('G3.3c 执行扣减（裁决②）：placeOrder 成功回执 → 按被 approve 卡的审批 items 扣减（clamp ≤0 删行），未含条目不动、不开 drawer', async () => {
+        await reachAwaitHuman();
+        // 预置购物车：p-order-1 ×2（订单含 1 → 扣后 ×1）、p-order-2 ×1（订单含 2 → clamp 归零删行）、
+        // p-cart-1 ×3（订单未含 → 不动）
+        const products = useCatalogStore.getState().products;
+        useCartStore.getState().add(products.find((product) => product.id === 'p-order-1')!, 2);
+        useCartStore.getState().add(products.find((product) => product.id === 'p-order-2')!, 1);
+        useCartStore.getState().add(CART_PRODUCT, 3);
+
+        // 回放：执行回执帧（镜像 server 契约：{orderId, orderNumber, amount}，无 items 字段——
+        // 数据源必须是被 approve 那张卡的审批记录 items，而非输出帧）
+        mockStreamChat.mockImplementation(async ({ onChunk }: StreamChatOptions) => {
+            onChunk({
+                type: 'tool-output-available',
+                toolCallId: 'call-order-1',
+                output: { orderId: 'ord-1', orderNumber: 'order-test01', amount: 25 },
+            } as UIMessageChunk);
+            onChunk({ type: 'text-start', id: 't2' } as UIMessageChunk);
+            onChunk({
+                type: 'text-delta',
+                id: 't2',
+                delta: '订单已提交，订单号 order-test01。',
+            } as UIMessageChunk);
+            onChunk({ type: 'text-end', id: 't2' } as UIMessageChunk);
+            onChunk({ type: 'finish', finishReason: 'stop' } as UIMessageChunk);
+        });
+        useAssistantStore.getState().approve();
+        await vi.waitFor(() => {
+            expect(useAssistantStore.getState().status).toBe('done');
+        });
+
+        const { items, isOpen } = useCartStore.getState();
+        expect(items).toHaveLength(2);
+        expect(items.find((item) => item.product.id === 'p-order-1')).toMatchObject({
+            quantity: 1, // 2 − 1 = 1
+        });
+        expect(items.some((item) => item.product.id === 'p-order-2')).toBe(false); // clamp ≤0 删行
+        expect(items.find((item) => item.product.id === 'p-cart-1')).toMatchObject({
+            quantity: 3, // 订单未含 → 不动
+        });
+        expect(isOpen).toBe(false); // 裁决③：执行扣减无任何 UI 行为变更（不自动开 drawer）
+    });
+
+    it('G3.3c 执行扣减（裁决②）：查无审批记录（无 approval-request 帧的无据场景）→ 跳过扣减，cart 不写', async () => {
+        const products = useCatalogStore.getState().products;
+        useCartStore.getState().add(products.find((product) => product.id === 'p-order-1')!, 2);
+        useCartStore.getState().add(CART_PRODUCT, 3);
+
+        // 模型发起 placeOrder 但无 approval-request 帧（刷新后回放等无据场景）：
+        // tool-output-available 到达时 store 无 toolCallId 对应的审批记录 → 不得扣减
+        streamChunks([
+            ORDER_INPUT,
+            {
+                type: 'tool-output-available',
+                toolCallId: 'call-order-1',
+                output: { orderId: 'ord-x', orderNumber: 'order-noref01', amount: 10 },
+            } as UIMessageChunk,
+            ...TEXT_TAIL,
+        ]);
+        await useAssistantStore.getState().sendMessage('帮我下单');
+
+        expect(useAssistantStore.getState().status).toBe('done');
+        const { items } = useCartStore.getState();
+        expect(items.find((item) => item.product.id === 'p-order-1')).toMatchObject({
+            quantity: 2, // 查无审批记录 → 跳过扣减，数量原样
+        });
+        expect(items.find((item) => item.product.id === 'p-cart-1')).toMatchObject({
+            quantity: 3,
+        });
+    });
+
     it('取消订单（cancelOrder）→ await_human + USER_ABORT → aborted 停驻 + 审批 cancelled + 无回放（裁决⑤）', async () => {
         await reachAwaitHuman();
 

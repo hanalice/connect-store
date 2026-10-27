@@ -91,6 +91,61 @@ describe('useCartStore', () => {
         expect(`$${totalPrice().toFixed(2)}`).toBe('$26.75');
     });
 
+    it('UT-CART-04 alignWithOrderItems（G3.3c 裁决①，PM 修订窄读）：订单内——draft 对齐数量 + 移除删行；订单外 cart 行（含手动加购）一律保留，永不新增', () => {
+        const store = useCartStore.getState();
+        store.add(productPaid, 5); // 原订单含（×5）→ draft 改 ×2 → 对齐
+        useCartStore.getState().add(productFree, 1); // 原订单含（×1）→ draft 移除该条目 → 删行
+        useCartStore.getState().add(productViewOnly, 2); // 订单外（await_human 期间手动加购）→ 保留
+
+        useCartStore.getState().alignWithOrderItems(
+            [
+                // scope = 被 edit 那张卡的原订单 items
+                { productId: 'p-paid', quantity: 5 },
+                { productId: 'p-free', quantity: 1 },
+            ],
+            [
+                // 修改后 draft：p-paid 改 2；p-free 移除
+                { productId: 'p-paid', quantity: 2 },
+                { productId: 'p-unknown', quantity: 9 }, // draft / cart 双无 → 永不新增
+            ],
+        );
+        const { items, itemCount, totalPrice } = useCartStore.getState();
+        expect(items).toEqual([
+            { product: productPaid, quantity: 2 }, // 订单内数量直写对齐：5 → 2
+            { product: productViewOnly, quantity: 2 }, // 订单外手动加购行保留（Q-D-01 回归锁）
+        ]);
+        expect(items.some((item) => item.product.id === 'p-free')).toBe(false); // 订单内移除 → 删行
+        expect(items.some((item) => item.product.id === 'p-unknown')).toBe(false); // 永不新增
+        expect(itemCount()).toBe(2);
+        expect(totalPrice()).toBeCloseTo(12.5 * 2 + 4.75 * 2, 5); // 25 + 9.5
+    });
+
+    it('UT-CART-05 deductExecutedItems（G3.3c 裁决②）：按量扣减，clamp ≤0 删行不产生负数；cart 没有的 productId 跳过', () => {
+        const store = useCartStore.getState();
+        store.add(productPaid, 5);
+        useCartStore.getState().add(productFree, 3);
+        useCartStore.getState().add(productViewOnly, 1);
+
+        useCartStore.getState().deductExecutedItems([
+            { productId: 'p-paid', quantity: 2 }, // 5 − 2 = 3
+            { productId: 'p-free', quantity: 5 }, // cartQty 3 < orderQty 5 → clamp 归零删行
+            { productId: 'p-ghost', quantity: 1 }, // cart 没有 → 跳过不补行
+        ]);
+        // p-view 不在订单 items → 原样保留
+        const { items } = useCartStore.getState();
+        expect(items).toHaveLength(2);
+        expect(items.find((item) => item.product.id === 'p-paid')).toEqual({
+            product: productPaid,
+            quantity: 3,
+        });
+        expect(items.some((item) => item.product.id === 'p-free')).toBe(false); // clamp 删行
+        expect(items.find((item) => item.product.id === 'p-view')).toEqual({
+            product: productViewOnly,
+            quantity: 1,
+        });
+        expect(items.some((item) => item.product.id === 'p-ghost')).toBe(false);
+    });
+
     it('persist 恢复：写入经 persist 层落盘 clo-cart（只含 items）→ rehydrate 从 localStorage 恢复', async () => {
         useCartStore.getState().add(productPaid, 2);
         useCartStore.getState().open();
