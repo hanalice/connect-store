@@ -1,6 +1,6 @@
 # Connect Store · AI 导购助手（Showcase 施工设计文档）
 
-> 版本：v0.4（2026-10-16，✅ 已确认）
+> 版本：v0.5 (final)（2026-10-27，G4.3 终版收敛；✅ PM 已签核（G4.3 §六））
 > 作者：Alice（自研项目）
 > 定位：Showcase —— AI 前端架构师（Agent 交互 + Streaming UI + Generative UI + HITL）
 > 职责边界（2026-10-13 定，2026-10-16 收紧）：承担 **AI 交互层**证据（Generative UI / 状态机投影 / HITL）+ React 底层深度；**不**承担检索/编排层证据（RAG / 混合检索 / 多 Agent 编排由 newtalk 承担，避免重复）。v0.4 据此**撤销 BFF 内语义检索**（原 D6）
@@ -12,17 +12,19 @@
 
 ### 1.1 现状盘点（connect-store 已有资产，不重复造）
 
-| 资产            | 内容                                                                                                                        | 施工中如何使用                                                                              |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| catalog feature | 数字资产目录：无限滚动/搜索/筛选/排序/主题系统/CLS 优化/URL 状态同步                                                        | 作为 Agent 工具调用的**数据源与落点**（AI 帮用户筛目录）                                    |
-| productApi      | 真实远程 API（`closet-recruiting-api.azurewebsites.net/api/data`，**一次返回全量数组、无查询参数**）+ 重试/校验/AbortSignal | 保留；dev 环境经 Vite proxy 指向 BFF **同一份快照**（数据同源，避免 AI 推荐与目录页不一致） |
-| Zustand store   | useCatalogStore（分页/加载/取消）                                                                                           | 新增 useCartStore / useAssistantStore 沿用模式                                              |
-| 测试体系        | 27 个自动化测试（Vitest + RTL）100% 通过                                                                                    | 新增测试沿用；状态机用转换表驱动测试                                                        |
-| 工程化          | ESLint/Prettier/Husky/Commitlint/CI(GitHub Actions)                                                                         | TS7 升级时同步适配                                                                          |
-| 设计系统        | SCSS Modules + CSS Variables（themes/variables/globals）                                                                    | 新组件沿用 token，不引入 Tailwind（避免双体系）                                             |
-| Product 类型    | `id/creator/title/pricingOption/imagePath/price`（**无 description / tags**）                                               | 仅 title/creator 含文本 → **不做向量检索**的客观判据（见 §1.3）                             |
+| 资产            | 内容                                                                                                                                                                                   | 施工中如何使用                                                                              |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| catalog feature | 数字资产目录：无限滚动/搜索/筛选/排序/主题系统/CLS 优化/URL 状态同步                                                                                                                   | 作为 Agent 工具调用的**数据源与落点**（AI 帮用户筛目录）                                    |
+| productApi      | 真实远程 API（`closet-recruiting-api.azurewebsites.net/api/data`，**一次返回全量数组、无查询参数**）+ 重试/校验/AbortSignal                                                            | 保留；dev 环境经 Vite proxy 指向 BFF **同一份快照**（数据同源，避免 AI 推荐与目录页不一致） |
+| Zustand store   | useCatalogStore（分页/加载/取消）                                                                                                                                                      | 新增 useCartStore / useAssistantStore 沿用模式                                              |
+| 测试体系        | 三层 232 个自动化测试全绿（2026-10-27 终版）：根 Vitest + RTL 137（20 文件 ~6s）/ server Vitest 72（9 文件 ~2s）/ E2E mock 23（Playwright ~26s），事实源 `docs/regression-index.md` §1 | 新增测试沿用；状态机用转换表驱动测试                                                        |
+| 工程化          | ESLint/Prettier/Husky/Commitlint/CI(GitHub Actions)                                                                                                                                    | TS7 升级时同步适配                                                                          |
+| 设计系统        | SCSS Modules + CSS Variables（themes/variables/globals）                                                                                                                               | 新组件沿用 token，不引入 Tailwind（避免双体系）                                             |
+| Product 类型    | `id/creator/title/pricingOption/imagePath/price`（**无 description / tags**）                                                                                                          | 仅 title/creator 含文本 → **不做向量检索**的客观判据（见 §1.3）                             |
 
 > **实测基线（2026-10-16，本机）**：分支 `feat/ai-assistant`、工作区干净；`npm test` = 4 文件 / **27 测试全绿，2.77s**；远程接口一次性返回全量数组，筛选 / 排序 / 分页均在客户端完成（`catalogSelectors.ts`）。
+>
+> **终版实测（2026-10-27，G4.3 收敛口径）**：根 **137**（20 文件 ~6s）+ server **72**（9 文件 ~2s）+ E2E mock **23**（~26s）= **232 全绿零回归**；数字事实源 = `docs/regression-index.md` §1，门面口径 = `README.md`。
 
 ### 1.2 目标
 
@@ -84,6 +86,55 @@
 └───────────────────────────────────────────────────┘
 ```
 
+### 系统架构图（mermaid，v0.5 补全）
+
+节点 / 边与 §3 文字、§5 状态机、§7 前端结构、§8 BFF 结构一一对应（G4.3 收敛，2026-10-27）：
+
+```mermaid
+flowchart TB
+    subgraph FE["前端（React 19 + TS 7 + Vite 8 + Zustand）"]
+        direction TB
+        UI["ChatPanel · ToolCallPanel<br/>ApprovalCard · AgentStatusBadge"]
+        REG[["uiRegistry 白名单分发<br/>tool-${toolName} → 渲染决策"]]
+        MACH[["assistantMachine<br/>9 态 / 12 事件 / 20 边转换表"]]
+        AST[("useAssistantStore<br/>状态 + 事件日志")]
+        CART[("useCartStore（persist）<br/>购物车")]
+        CHATAPI["chatApi 自研传输层<br/>fetch + readUIMessageStream"]
+        CAT["features/catalog<br/>数据源与落点（零改动复用）"]
+    end
+
+    subgraph BFF["BFF（Node + Hono + AI SDK v7）"]
+        direction TB
+        CHAT["POST /api/chat<br/>streamText 工具回路"]
+        TREG[["toolRegistry（4 工具）<br/>searchCatalog · getProductDetails<br/>addToCart · placeOrder"]]
+        TAP["toolApproval 两层<br/>SDK 协议层 + HMAC 签名"]
+        APR["approvals<br/>签发时刻表 + 阈值分级（默认 $50）"]
+        ORD[("orders 订单表<br/>pending / approved / rejected / expired<br/>TTL 300s · 按 orderId 查询")]
+        DIR["POST /api/tools/:toolName<br/>dev 直调白名单（与审批门控互斥）"]
+    end
+
+    LLM[("LLM API（OpenAI-compatible）<br/>LLM_API_KEY 仅服务端持有")]
+
+    MACH --> AST
+    AST --> UI
+    UI --> REG
+    REG --> CAT
+    UI --> CHATAPI
+    CART --> UI
+    CHATAPI -->|"POST /api/chat · 官方 UI 消息流"| CHAT
+    CHAT -->|"SSE 官方 UI 消息流（含 tool-approval-request 帧）"| CHATAPI
+    CHATAPI --> AST
+    CHAT --> TREG
+    CHAT --> TAP
+    TAP --> APR
+    TAP --> ORD
+    TREG --> ORD
+    DIR --> TREG
+    CHAT <-->|streamText| LLM
+```
+
+**图注**：实线 = 运行时数据流。审批闭环：BFF 策略拦下 `placeOrder` → `tool-approval-request` 帧随 SSE 到前端 → store 落 `await_human` → ApprovalCard 三出边（approve / reject 走 `tool-approval-response` 回放；edit 走新 toolCall 重发）→ 下一回合 `streamText` 复放，策略回调按签发时刻表 + HMAC 复核后执行。
+
 **技术决策**：
 
 - **AI SDK（Vercel）**：`ai`（实测 v7，`latest` = 7.0.142 / 2026-10-15；8/31 报告 P1：2,356 万/周、242 次/90天发布的"事实标准层"）；服务端 `streamText` + tools + `toolApproval`
@@ -123,10 +174,10 @@ stateDiagram-v2
     [*] --> idle
     idle --> thinking: 用户发送消息
     thinking --> tool_calling: LLM 请求工具
-    thinking --> streaming: LLM 直接回复
+    thinking --> streaming: STREAM_START（LLM 直接回复）
     tool_calling --> tool_result: 工具执行完成
     tool_result --> tool_calling: 需要更多工具
-    tool_result --> streaming: 生成最终回复
+    tool_result --> streaming: STREAM_START（生成最终回复）
     streaming --> await_human: AI 提议副作用操作(placeOrder)
     streaming --> done: 回复完成
     await_human --> tool_calling: approve → 执行下单
@@ -144,7 +195,7 @@ stateDiagram-v2
     done --> [*]
 ```
 
-**口径声明（2026-10-16）**：**7 主体状态** = idle / thinking / tool_calling / tool_result / streaming / await_human / done；**2 附加态** = error / aborted；合计 **9 个节点**。**唯一终态 = done**（`done → [*]`）。路径 **≥7 条**（含 error 与 `aborted` 分支）——达标线：08-08 补考题原为 ≥6 条，因 v0.4 新增 `aborted` 分支提高至 ≥7 条。
+**口径声明（2026-10-16；2026-10-27 终版实测校准）**：**7 主体状态** = idle / thinking / tool_calling / tool_result / streaming / await_human / done；**2 附加态** = error / aborted；合计 **9 个节点**。**唯一终态 = done**（`done → [*]`）。路径 **≥7 条**（含 error 与 `aborted` 分支）——达标线：08-08 补考题原为 ≥6 条，因 v0.4 新增 `aborted` 分支提高至 ≥7 条。**转换表实测规模（G2.2 落地）**：20 条合法 `(state, event) → next` 边（19 个唯一状态对，`await_human → tool_calling` 由 APPROVE / EDIT 共享）、12 个事件——9 状态 × 12 事件 = 108 组合，其余 88 个非法组合 `send()` 显式拒绝。
 
 **aborted（用户主动取消）三条约束**（2026-10-16 定；缺任一条即为冗余状态）：
 
@@ -154,9 +205,9 @@ stateDiagram-v2
 
 **取消语义 ≠ 失败语义**（面试可讲）：对齐浏览器 `AbortError`（`signal.aborted`）—— 主动取消必须与网络错误分开展示，否则会对用户自己的取消误报错误。
 
-**事件日志**（支撑恢复/审计叙事）：每次转换记录 `{ from, to, event, tool?, args?, result?, ts, durationMs }`，存内存环形缓冲（上限 200 条），前端可展开查看。`event` = 触发事件枚举（`USER_SEND` / `TOOL_CALL` / `TOOL_RESULT` / `STREAM_END` / `APPROVAL_REQUEST` / `APPROVE` / `REJECT` / `EDIT` / `USER_ABORT` / `RETRY` / `ERROR`）；状态机以**转换表** `(state, event) → next` 驱动，非法组合显式拒绝（G2.2 测试目标）。
+**事件日志**（支撑恢复/审计叙事）：每次转换记录 `{ from, to, event, tool?, args?, result?, ts, durationMs }`，存内存环形缓冲（上限 200 条），前端可展开查看。`event` = 触发事件枚举（**12 个**，G2.2 缺口①补 `STREAM_START`）：`USER_SEND` / `TOOL_CALL` / `STREAM_START` / `TOOL_RESULT` / `STREAM_END` / `APPROVAL_REQUEST` / `APPROVE` / `REJECT` / `EDIT` / `USER_ABORT` / `RETRY` / `ERROR`；状态机以**转换表** `(state, event) → next` 驱动，非法组合显式拒绝（G2.2 测试目标）。
 
-**UI = 状态投影**：组件不自己"决定"状态，只消费 store 的状态渲染对应面板。`await_human` 是产品语义（等审批），不是 loading。
+**UI = 状态投影**：组件不自己"决定"状态，只消费 store 的状态渲染对应面板。`await_human` 是产品语义（等审批），不是 loading。（2026-10-27 终版注记：G3.3 已真实可达——`tool-approval-request` 帧落 store 审批态，ApprovalCard 按 store 投影渲染，approve / reject / edit 三出边全通；composer 在 `await_human` 锁定输入，G3.3 裁决⑥。）
 
 ---
 
@@ -195,11 +246,16 @@ AI 生成 placeOrder 提议
 ### 6.3 审批协议类型定义
 
 ```ts
-// 前端 → BFF 审批决策
+// 前端 → BFF 审批决策（G3.3 落地形态，引 docs/reports/G3.3.md 裁决②③④）
+// approve / reject：走 SDK 原生回放 —— 下一回合消息历史携带 tool-approval-response part
+// （reject 附 reason），服务端策略回调复核 HMAC 签名 + 签发时刻表后 approved / denied；
+// edit：不发审批响应 —— 前端发 EDIT 事件（await_human → tool_calling）并以新 toolCallId
+// 重新发起下单（新 input-available part），BFF 将旧 pending 单标记 rejected
+// （superseded by user edit）并签发新单（orders.ts 无 edited 态，四态锁定）。
 type ApprovalDecision =
   | { type: 'approve'; orderId: string }
-  | { type: 'reject'; orderId: string; reason: string } // reason 反馈给 LLM
-  | { type: 'edit'; orderId: string; edits: CartItem[] }; // 改数量/删项后继续
+  | { type: 'reject'; orderId: string; reason: string } // reason 反馈给 LLM（deny 复放 → 修正文本）
+  | { type: 'edit'; orderId: string; items: ApprovalItem[] }; // G3.3：不发审批响应、新 toolCall 重发（非原 union 的 edits 载荷）
 
 // BFF 审批状态机
 type ApprovalState =
@@ -243,39 +299,52 @@ src/features/cart/
 ### Generative UI 组件注册表（白名单，安全边界）
 
 ```tsx
-// uiRegistry.tsx —— part.type（官方 tool-${toolName} 命名）→ 渲染分发（白名单模式）
-// 注册表 value 是「渲染决策」而非单个组件：一个 key 可分发到多个组件
-export const UI_REGISTRY: Record<string, (part: ToolPart) => ReactNode> = {
-  'tool-searchCatalog': (part) =>
-    part.state === 'output-error' ? (
-      <ToolError part={part} />
-    ) : part.output.items.length === 0 ? (
+// uiRegistry.tsx —— key = 官方 tool-${toolName} 命名 → 渲染分发（白名单模式）
+// 注册表输入（G2.4 裁决⑦）：{ toolName, output, error? }（从消息 toolCalls 解耦，不消费 part 流）
+// 注册表 value 是「渲染决策」而非单个组件：一个 key 按命中 / 空结果 / 失败分流
+// 裁决⑤：output 入 registry 前 zod 运行时校验（镜像存量 Product 契约），safeParse 失败 → 内联 ToolError
+export interface ToolCallOutput {
+  toolName: string;
+  output?: unknown;
+  error?: string;
+}
+
+export const UI_REGISTRY: Record<string, (call: ToolCallOutput) => ReactNode> = {
+  'tool-searchCatalog': (call) =>
+    call.error !== undefined ? (
+      <ToolError message={call.error} />
+    ) : /* zod 校验失败 / 输出体 error 字段 → ToolError */ parsed.data.items.length === 0 ? (
       <EmptyState /> // 复用存量 EmptyState
     ) : (
-      <ProductGrid>
-        {part.output.items.map((p) => (
-          <ProductCard key={p.id} product={p} />
-        ))}
-      </ProductGrid>
+      <div className={styles.toolGrid}>
+        {/* 裁决⑥：wrapper 恒定 2 列（特异性压过存量媒体查询），存量组件零改动 */}
+        <ProductGrid>
+          {parsed.data.items.map((p) => (
+            <ProductCard key={p.id} product={p} />
+          ))}
+        </ProductGrid>
+      </div>
     ),
-  'tool-getProductDetails': (part) => <PriceBreakdown product={part.output} />,
-  'tool-placeOrder': (part) => <ApprovalCard part={part} />, // 内嵌 OrderSummary
+  'tool-getProductDetails': (call) => <PriceBreakdown product={parsed.data.product} />,
+  'tool-addToCart': (call) => <CartConfirmCard product={…} quantity={…} />, // G3.1 裁决④：加购成功确认卡
+  'tool-placeOrder': (call) => <OrderResultCard result={…} />, // G3.3 裁决②：仅执行回执；审批卡由 ChatPanel 按 store 审批态渲染，不经 registry
   // 未注册的 toolName（含 dynamic tool call）→ 一律降级为文本，绝不渲染任意组件
 };
 ```
 
-**注册表（key ↔ 组件 ↔ props）**：
+**注册表（key ↔ 组件 ↔ props，2026-10-27 终版按实现校准）**：
 
-| registry key（`part.type`）      | 组件                            | 复用存量          | props / schema 要点                                  |
-| -------------------------------- | ------------------------------- | ----------------- | ---------------------------------------------------- |
-| `tool-searchCatalog`（命中）     | `ProductGrid` + `ProductCard`   | ✅ 两个纯展示组件 | `items: Product[]`（上限条数）；`Product` 为存量类型 |
-| `tool-searchCatalog`（空结果）   | `EmptyState`                    | ✅                | 复用存量文案（"No contents matched…"）               |
-| `tool-searchCatalog`（工具失败） | `ToolError`                     | ❌ 新写（轻量）   | `message: string`                                    |
-| `tool-getProductDetails`         | `PriceBreakdown`                | ❌ 新写           | 价格 / 计价方式 / 拆分项；货币口径与存量一致（`$`）  |
-| `tool-placeOrder`（审批态）      | `ApprovalCard` + `OrderSummary` | ❌ 新写           | items / quantity / total；不可逆提示                 |
+| registry key（`tool-${toolName}`） | 组件                                     | 复用存量          | props / schema 要点                                                                                                                                                                                  |
+| ---------------------------------- | ---------------------------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tool-searchCatalog`（命中）       | `ProductGrid` + `ProductCard`（wrapper） | ✅ 两个纯展示组件 | zod 校验后 `items: Product[]`；`Product` 为存量类型                                                                                                                                                  |
+| `tool-searchCatalog`（空结果）     | `EmptyState`                             | ✅                | 复用存量文案（"No contents matched…"）                                                                                                                                                               |
+| `tool-searchCatalog`（工具失败）   | `ToolError`                              | ❌ 新写（轻量）   | `error` / 输出体 `error` 字段 / zod 校验失败三类 → `message`（+ 校验失败标题）                                                                                                                       |
+| `tool-getProductDetails`           | `PriceBreakdown`                         | ❌ 新写           | `product`；价格 / 计价方式 / 拆分项；货币口径与存量一致（`$`）                                                                                                                                       |
+| `tool-addToCart`（G3.1 补）        | `CartConfirmCard`                        | ❌ 新写           | `product` / `quantity`；加购成功确认卡（G3.1 裁决④）                                                                                                                                                 |
+| `tool-placeOrder`（执行回执）      | `OrderResultCard`                        | ❌ 新写           | `orderId` / `orderNumber` / `amount`；审批卡 **ApprovalCard 不经 registry**——内嵌订单摘要（items / quantity / total，**OrderSummary 未独立成组件**），由 ChatPanel 按 store 审批态渲染（G3.3 裁决②） |
 
 **复用可行性（已实测代码）**：`ProductGrid`（11 行，`({ children }) => <section className={styles.grid}>`）与 `ProductCard`（`({ product }: { product: Product })`）均为**纯展示组件、零 store 耦合** → 直接复用，不另写容器（理由同 D1：新容器 = 视觉 / CLS / A11y 三份维护）。`EmptyState` 复用存量。
-**已知风险**：`styles.grid` 为响应式栅格（480/768/1200 → 1/2/3/4 列），在对话气泡的窄宽度内会退化为 1 列——若需多列，在气泡内加一个覆盖列数的 wrapper（**不改进存量组件**）。
+**气泡内列数（2026-10-27 实测口径，替代 v0.4「已知风险」）**：存量 `styles.grid` 的媒体查询是**视口驱动**（480/768/1200 → 1/2/3/4 列）而非容器查询——对话气泡不触发断点，实际渲染为 4 列窄卡；G2.4 裁决⑥ 用 `.toolGrid > section` wrapper（特异性 0,1,1 压过 0,1,0）**恒定覆盖为 2 列**（存量组件零改动），E2E-AI-14 `getComputedStyle` 列数 = 2 断言闭合。
 
 **安全边界**：白名单 = 「前端认识的 `toolName` 集合」→ **模型无法伪造组件标识**（比"模型返回组件 id"更强的边界）；未注册 key（含 dynamic tool call）一律降级文本。**不渲染任意 HTML/组件、不把 LLM 原始输出当代码执行**（8/31 报告 Generative UI 安全边界三件套之一）。
 
@@ -287,13 +356,13 @@ export const UI_REGISTRY: Record<string, (part: ToolPart) => ReactNode> = {
 server/
 ├── index.ts          # Hono 入口 + 中间件（CORS 白名单/请求体限制）
 ├── chat.ts           # POST /api/chat → streamText + tools + toolApproval（官方 UI 消息流）
-├── orders.ts         # 审批业务状态层：订单表（pending/approved/rejected/expired + issuedAt + TTL）+ 按 orderId 查询 + 下单执行（mock）
-├── approvals.ts      # toolApproval 策略（阈值分级 + TTL 校验 + 签发时刻表）+ toolApprovalSecret 配置
+├── orders.ts         # 审批业务状态层（ADR D9）：订单表四态 + issuedAt/expiresAt + TTL + 审计日志 + 惰性过期 + 按 orderId 查询 + mock 下单执行
+├── approvals.ts      # toolApproval 策略：placeOrder 恒 'user-approval'（缺 APPROVAL_SECRET 恒 denied）+ 阈值分级（默认 $50）+ 签发时刻表（TTL 300s 复放判定）
 ├── tools/
 │   ├── searchCatalog.ts     # 结构化查询：关键词(title/creator) + 免费/付费/仅查看 + 排序 + 价格区间(maxPrice/minPrice)
 │   ├── getProductDetails.ts
 │   ├── addToCart.ts
-│   └── placeOrder.ts        # 副作用工具：'user-approval'，校验订单表状态后才执行
+│   └── placeOrder.ts        # 副作用工具：恒 'user-approval'；执行前校验订单表 approved 且未过 TTL（API-AI-01），金额按快照现价实时重计价
 ├── data/
 │   └── products.ts          # 数据层：冻结快照（远程 /api/data 一次性导出）+ **真实执行**筛选/排序/区间过滤（数据 mock、逻辑真跑）
 └── env.ts            # LLM_API_KEY / LLM_BASE_URL / LLM_MODEL / APPROVAL_SECRET / PORT（OpenAI-compatible；.env，gitignore；与 ADR D4/D9 一致）
@@ -334,11 +403,15 @@ server/
 - 前端：ChatPanel + StreamingText + chatApi（**自研传输层，消费官方 UI 消息流**）
 - 验证：能流式对话；错误处理（网络断/500）；`npm test` 全绿
 
+> ✅ **落地完成（G1.1–G1.4，2026-10-23）**。验证实测：浏览器流式打字机渲染通过（E2E-AI-02）；断网 / 停 BFF 不白屏，错误横幅 + 降级链接（E2E-AI-03）；`curl -N /api/chat` 流式完整（G1.2 验收）。
+
 ### Phase 2：工具调用 + 状态机 + Generative UI
 
 - 后端：tools（searchCatalog **[含 maxPrice / minPrice]** / getProductDetails / addToCart）+ 数据层（冻结快照 + 真实过滤）
 - 前端：assistantMachine（纯函数，含 `aborted`）+ useAssistantStore + ToolCallPanel + uiRegistry（官方 `tool-${toolName}` 分发 + 复用存量 ProductGrid/ProductCard/EmptyState）
 - 验证：状态机 ≥6 路径单测全绿（**含 `aborted` 与 `await_human → aborted`**）；对话中能看到工具执行面板 + 动态商品卡；"20 刀以内"能正确过滤；**未注册 toolName 降级为文本**
+
+> ✅ **落地完成（G2.1–G2.4，2026-10-25）**。验证实测：状态机 UT-ASM-01~09 ≥7 路径全绿 + 非法转换拒绝；工具面板 + 动态商品卡（E2E-AI-10~15）；"20 刀以内"过滤正确（API-AI-02 / server data 层 15 条）；未注册 toolName 降级文本（UT-REG-02 / E2E-AI-15）；气泡内 2 列 wrapper 闭合（E2E-AI-14）。
 
 ### Phase 3：HITL 下单审批（SDK 原生协议 + 自建业务状态）
 
@@ -346,12 +419,16 @@ server/
 - 前端：ApprovalCard（三出边）+ `addToolApprovalResponse` + await_human 状态 + cart feature（CartDrawer/useCartStore）
 - 验证：完整闭环 demo（对话→推荐→加购→审批→下单→订单号）；reject 后 AI 修正链路跑通；edit 走"带修改重新发起"；超时 → expired；伪造审批被拦截（`API-AI-01`）
 
+> ✅ **落地完成（G3.1–G3.4，2026-10-26）**。验证实测：完整闭环 E2E-AI-19；reject 修正链路 E2E-AI-20；edit 新卡替换旧卡 E2E-AI-21；超时 expired = INT-HITL-04 + API-AI-05；伪造审批拦截 = API-AI-01 / API-AI-06；失败恢复 E2E-AI-22~24。
+
 ### Phase 4：收尾（文档 + 测试 + story）
 
 - `docs/ai-assistant-design.md` 更新为最终版（含架构图 mermaid）
 - README 5 分钟 story（对齐 vercel/ai-chatbot 范本）
 - 补测试：registry 4 类用例 + 状态转换表 + mock LLM 确定性
 - 验证：`npm run build && npm test` 全绿 + 手工走查全旅程 + 3 分钟口头讲述彩排
+
+> ✅ **落地完成（G4.1–G4.3，2026-10-27）**。验证实测：三层 232 全绿（根 137 / server 72 / E2E mock 23，regression-index §1，G4.1 实测 2026-10-26）+ E2E 入 CI；README 5 分钟 story 签核（G4.2，8bed604）；本文档升版 v0.5 final 含 §3 mermaid 架构图（G4.3）。讲述彩排移交 H3 真人计时终判（G4.2 遗留裁决，不属本文件验证项）。
 
 **预计投入**：Phase 0 半天 / Phase 1 1 天 / Phase 2 2 天（v0.3 为 2.5 天，剔除语义检索 0.5~1 天后取整并保留缓冲）/ Phase 3 2 天 / Phase 4 1 天 ≈ **6.5 天**（v0.3 为 7 天）
 **与学习计划合流**：Phase 0 = Day 3 任务；Phase 2 状态机 = Day 6 架构图实物版；Phase 3 = Day 2 补考 08-08 实弹；做完再考，考得动。
@@ -372,10 +449,11 @@ server/
 
 ## 12. 变更记录
 
-| 日期       | 变更                                                                                                                                                                                                                                                                                                                                                                                                                                             | 状态      |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 2026-09-01 | v0.3 定稿（用户拍板）：语义检索确认做（后于 2026-10-16 撤销）；Express → Hono；本文件确立为唯一施工文档 + 7 状态机为准；补 HITL 类型定义与超时兜底；统一环境变量命名；补 git 分支说明                                                                                                                                                                                                                                                            | ✅ 已确认 |
-| 2026-10-13 | v0.3.1 职责边界收紧：本 Showcase 承担 AI 交互层证据（Generative UI / 状态机投影 / HITL）+ React 底层深度；检索 / 编排层证据归 newtalk，避免重复叙事                                                                                                                                                                                                                                                                                              | ✅ 已确认 |
-| 2026-10-16 | v0.4：① 协议路线定为自研传输 + 官方 UI 消息流；② Generative UI 改官方 `tool-${toolName}` 分发 + 复用存量 ProductGrid / ProductCard / EmptyState；③ **撤销语义检索**（连带删 embedding / retrieval / descriptions）；④ 新增 `aborted` 状态（三条约束 + 审批取消统一）；⑤ HITL 改「SDK 原生 `toolApproval` + 签名 + 自建订单表」分层方案 + 阈值分级；⑥ `searchCatalog` 增 maxPrice / minPrice；⑦ 修 §10 Phase 1 的 Express 残留；⑧ 投入 7 → 6.5 天 | ✅ 已确认 |
+| 日期       | 变更                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | 状态                     |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| 2026-09-01 | v0.3 定稿（用户拍板）：语义检索确认做（后于 2026-10-16 撤销）；Express → Hono；本文件确立为唯一施工文档 + 7 状态机为准；补 HITL 类型定义与超时兜底；统一环境变量命名；补 git 分支说明                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | ✅ 已确认                |
+| 2026-10-13 | v0.3.1 职责边界收紧：本 Showcase 承担 AI 交互层证据（Generative UI / 状态机投影 / HITL）+ React 底层深度；检索 / 编排层证据归 newtalk，避免重复叙事                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | ✅ 已确认                |
+| 2026-10-16 | v0.4：① 协议路线定为自研传输 + 官方 UI 消息流；② Generative UI 改官方 `tool-${toolName}` 分发 + 复用存量 ProductGrid / ProductCard / EmptyState；③ **撤销语义检索**（连带删 embedding / retrieval / descriptions）；④ 新增 `aborted` 状态（三条约束 + 审批取消统一）；⑤ HITL 改「SDK 原生 `toolApproval` + 签名 + 自建订单表」分层方案 + 阈值分级；⑥ `searchCatalog` 增 maxPrice / minPrice；⑦ 修 §10 Phase 1 的 Express 残留；⑧ 投入 7 → 6.5 天                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | ✅ 已确认                |
+| 2026-10-27 | v0.5 (final)：G0–G4 全程执行期偏差收敛（只动实现描述，v0.4 技术决策原样保留，§4 / §6.2 / §11 / ADR 引用语句一字未改）——① §1.1 测试基线 27 → 终版 232（根 137 + server 72 + E2E mock 23，事实源 regression-index §1）；② §3 补全系统 mermaid 架构图（与 §5 状态机、§7 结构一致）；③ §5 mermaid 补 `STREAM_START` 两条边标注 + 事件枚举 11 → 12 + await_human 投影注释（G3.3 已真实可达）；④ §6.3 edit 分支按 G3.3 落地形态改写（不发审批响应、新 toolCall 重发，非原 union 的 `edits` 载荷）；⑤ §7 registry 输入签名 `(part: ToolPart)` → `{toolName, output, error?}`（G2.4 裁决⑦）+ 补 `tool-addToCart` key（G3.1 裁决④）+ 「气泡内退化为 1 列」改实测口径（视口驱动媒体查询，wrapper 恒定 2 列，G2.4 裁决⑥）+ `tool-placeOrder` 行按实现改写（执行回执 OrderResultCard；审批卡 ApprovalCard 内嵌订单摘要、不经 registry，G3.3 裁决②）；⑥ §8 orders.ts / approvals.ts / tools/placeOrder.ts 目录注释同步；⑦ §10 Phase 1–4 落地完成标注 + 各 Phase 验证标准实测结果 | ✅ PM 已签核（G4.3 §六） |
 
 ---
