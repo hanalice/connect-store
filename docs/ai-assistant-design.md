@@ -246,11 +246,16 @@ AI 生成 placeOrder 提议
 ### 6.3 审批协议类型定义
 
 ```ts
-// 前端 → BFF 审批决策（G3.3 落地形态，引 docs/reports/G3.3.md 裁决②③④）
+// 前端 → BFF 审批决策（G3.3 落地形态，引 docs/reports/G3.3.md 裁决②③④；
+// edit 分支已于 G3.3b 按 ADR D11 方案 B 取代）
 // approve / reject：走 SDK 原生回放 —— 下一回合消息历史携带 tool-approval-response part
 // （reject 附 reason），服务端策略回调复核 HMAC 签名 + 签发时刻表后 approved / denied；
-// edit：不发审批响应 —— 前端发 EDIT 事件（await_human → tool_calling）并以新 toolCallId
-// 重新发起下单（新 input-available part），BFF 将旧 pending 单标记 rejected
+// edit（D11 方案 B，G3.3b）：不发审批响应、不伪造 toolCall part —— 修正意图作新用户回合
+// 经官方消息流重发（固定标记 [订单修改重发] + 人读清单；历史剔除含未应答审批的 assistant
+// 消息，防 ai@7 本地校验复发），由模型重新发起 placeOrder；旧审批不再被回放引用，随 TTL
+// 过期（hang but safe 口径）。前端 machine：await_human 无 USER_SEND 出边，查表静默跳过 +
+// store 直设 thinking（表缺口登记 docs/reports/G3.3b.md §三）；四护栏 = prompt 硬约束 + zod
+// input schema + 二次审批卡人工复核 + error 兜底（G3.4）。BFF 将旧 pending 单标记 rejected
 // （superseded by user edit）并签发新单（orders.ts 无 edited 态，四态锁定）。
 type ApprovalDecision =
   | { type: 'approve'; orderId: string }
@@ -458,5 +463,6 @@ server/
 | 2026-10-16 | v0.4：① 协议路线定为自研传输 + 官方 UI 消息流；② Generative UI 改官方 `tool-${toolName}` 分发 + 复用存量 ProductGrid / ProductCard / EmptyState；③ **撤销语义检索**（连带删 embedding / retrieval / descriptions）；④ 新增 `aborted` 状态（三条约束 + 审批取消统一）；⑤ HITL 改「SDK 原生 `toolApproval` + 签名 + 自建订单表」分层方案 + 阈值分级；⑥ `searchCatalog` 增 maxPrice / minPrice；⑦ 修 §10 Phase 1 的 Express 残留；⑧ 投入 7 → 6.5 天                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | ✅ 已确认                |
 | 2026-10-27 | v0.5 (final)：G0–G4 全程执行期偏差收敛（只动实现描述，v0.4 技术决策原样保留，§4 / §6.2 / §11 / ADR 引用语句一字未改）——① §1.1 测试基线 27 → 终版 232（根 137 + server 72 + E2E mock 23，事实源 regression-index §1）；② §3 补全系统 mermaid 架构图（与 §5 状态机、§7 结构一致）；③ §5 mermaid 补 `STREAM_START` 两条边标注 + 事件枚举 11 → 12 + await_human 投影注释（G3.3 已真实可达）；④ §6.3 edit 分支按 G3.3 落地形态改写（不发审批响应、新 toolCall 重发，非原 union 的 `edits` 载荷）；⑤ §7 registry 输入签名 `(part: ToolPart)` → `{toolName, output, error?}`（G2.4 裁决⑦）+ 补 `tool-addToCart` key（G3.1 裁决④）+ 「气泡内退化为 1 列」改实测口径（视口驱动媒体查询，wrapper 恒定 2 列，G2.4 裁决⑥）+ `tool-placeOrder` 行按实现改写（执行回执 OrderResultCard；审批卡 ApprovalCard 内嵌订单摘要、不经 registry，G3.3 裁决②）；⑥ §8 orders.ts / approvals.ts / tools/placeOrder.ts 目录注释同步；⑦ §10 Phase 1–4 落地完成标注 + 各 Phase 验证标准实测结果 | ✅ PM 已签核（G4.3 §六） |
 | 2026-10-27 | v0.5 G4.4 补丁（签核后极小补丁纪律，不升版本号）：① §8 目录树补 `chat-prompt.ts` / `tools/index.ts` 两行；② §9「E2E（可选）」行对齐 CI 门禁现实（E2E = CI 门禁 + 本地三连跑硬指标，live 冒烟隔离非默认门禁）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | ✅ G4.4 补丁             |
+| 2026-10-27 | v0.5 G3.3b 补丁（签核后极小补丁纪律，不升版本号）：§6.3 edit 分支按 ADR D11 方案 B 改写 —— edit = 修正意图作新用户回合经官方消息流重发（不再伪造 toolCall part；H2 走查 live 100% MissingToolResultsError 根因修复）；四护栏 = prompt 硬约束（chat-prompt.ts）+ zod input schema（存量）+ 二次审批卡人工复核（存量）+ error 兜底（G3.4 存量）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | ✅ G3.3b 补丁            |
 
 ---

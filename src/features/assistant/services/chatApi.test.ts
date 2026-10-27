@@ -1,12 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { UIMessageChunk } from 'ai';
 
-import {
-    buildApprovalReplayMessages,
-    buildEditReplayMessages,
-    ChatApiError,
-    streamChat,
-} from './chatApi';
+import { buildApprovalReplayMessages, ChatApiError, streamChat } from './chatApi';
 
 /** 构造一条受控 SSE 流：每个元素是一帧 JSON（UIMessageChunk），供确定性测试（design §9）。 */
 function sseStream(frames: unknown[]): ReadableStream<Uint8Array> {
@@ -235,24 +230,5 @@ describe('审批回放构造器（G3.3 裁决④：纯函数，part 形态以 ai
         expect(
             part.type === 'tool-placeOrder' && 'approval' in part ? Object.keys(part.approval) : [],
         ).not.toContain('inputSchemaInput');
-    });
-
-    it('edit 重发回放（裁决③）：不发审批响应 —— 新 toolCall part（新 toolCallId + 修改后 items）', () => {
-        const messages = buildEditReplayMessages(history, {
-            messageId: 'assistant-2',
-            toolCallId: 'call-edit-1',
-            toolName: 'placeOrder',
-            input: { items: [{ productId: 'p1', quantity: 1 }] },
-        });
-
-        expect(messages[1].parts).toEqual([
-            { type: 'text', text: '正在等待确认' },
-            {
-                type: 'tool-placeOrder',
-                toolCallId: 'call-edit-1',
-                state: 'input-available',
-                input: { items: [{ productId: 'p1', quantity: 1 }] },
-            },
-        ]);
     });
 });

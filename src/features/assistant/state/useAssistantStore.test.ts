@@ -3,6 +3,7 @@ import type { UIMessageChunk } from 'ai';
 
 import { ChatApiError } from '../services/chatApi';
 import { useCartStore } from '../../cart/store/useCartStore';
+import { useCatalogStore } from '../../catalog/store/useCatalogStore';
 import { useAssistantStore } from './useAssistantStore';
 
 // mock 传输层：用受控 chunk 序列驱动 store，保证测试确定性（LLM 是不确定依赖）
@@ -597,6 +598,28 @@ describe('useAssistantStore G3.3 审批接线（裁决③④⑤）', () => {
         vi.clearAllMocks();
         localStorage.clear();
         useCartStore.setState({ items: [], isOpen: false });
+        // G3.3b（D11 方案 B）：edit 重发用户消息的标题解析读目录快照（与审批卡同款数据源，
+        // ChatPanel 解析 ApprovalCardItem 的同一份）——种子两条订单夹具商品
+        useCatalogStore.setState({
+            products: [
+                {
+                    id: 'p-order-1',
+                    creator: 'Creator A',
+                    title: '付费模板 Alpha',
+                    pricingOption: 0,
+                    imagePath: '',
+                    price: 10,
+                },
+                {
+                    id: 'p-order-2',
+                    creator: 'Creator B',
+                    title: '音效包 Beta',
+                    pricingOption: 0,
+                    imagePath: '',
+                    price: 7.5,
+                },
+            ],
+        });
         useAssistantStore.getState().reset();
     });
 
@@ -771,10 +794,11 @@ describe('useAssistantStore G3.3 审批接线（裁决③④⑤）', () => {
         expect(machine.log[4]).toMatchObject({ from: 'thinking', to: 'streaming' });
     });
 
-    it('editOrder → EDIT 事件（→tool_calling）+ 新 toolCall 重发（不发审批响应）→ 新审批请求替换旧卡（INT-HITL-03）', async () => {
+    it('editOrder（D11 方案 B，G3.3b）：请求体 = 截断历史（剔除含未应答审批的 assistant 消息）+ [订单修改重发] 用户消息，纯 text part 无 tool 残留', async () => {
         await reachAwaitHuman();
+        const oldMessageId = useAssistantStore.getState().messages[1]?.id;
 
-        // 回放响应：服务端按新 toolCall 重新签发审批（新 toolCall 先登记，再挂起）
+        // 第二回合（edit 重发）：模型按 prompt 硬约束重新发起 placeOrder → 新审批挂起
         mockStreamChat.mockImplementation(async ({ onChunk }: StreamChatOptions) => {
             onChunk({
                 type: 'tool-input-available',
@@ -797,18 +821,65 @@ describe('useAssistantStore G3.3 审批接线（裁决③④⑤）', () => {
             expect(useAssistantStore.getState().status).toBe('await_human');
         });
 
-        // 回放请求体：新 toolCall part（新 toolCallId + 修改后 items），无审批响应 part
+        // 消息历史截断不变式（G3.3b 裁决①，防 MissingToolResultsError 复发）：
+        // 请求体 = [user 帮我下单, user edit 重发] —— 发起旧审批的 assistant 消息整体剔除
         const replayMessages = mockStreamChat.mock.calls[1][0].messages;
-        expect(replayMessages[1].parts[1]).toEqual({
-            type: 'tool-placeOrder',
-            toolCallId: 'call-edit-1',
-            state: 'input-available',
-            input: { items: [{ productId: 'p-order-2', quantity: 1 }] },
+        expect(replayMessages).toHaveLength(2);
+        expect(replayMessages[0]).toEqual({
+            role: 'user',
+            parts: [{ type: 'text', text: '帮我下单' }],
         });
-        expect(JSON.stringify(replayMessages)).not.toContain('approval-responded');
+        // 末条 = edit 用户消息：固定标记 + 人读清单（标题 × 数量，目录快照解析，单测锁格式）
+        expect(replayMessages[1].role).toBe('user');
+        expect(replayMessages[1].parts).toEqual([
+            {
+                type: 'text',
+                text: '[订单修改重发] 请按以下清单重新下单：音效包 Beta × 1。请直接调用 placeOrder 工具提交（会再次经过审批），无需向我确认。',
+            },
+        ]);
+        // 任何消息不含 tool-placeOrder part / tool-approval-request 的未应答残留（请求体纯 text）
+        const serialized = JSON.stringify(replayMessages);
+        expect(serialized).not.toContain('tool-');
+        expect(serialized).not.toContain('call-order-1');
+        expect(serialized).not.toContain('input-available');
+        expect(serialized).not.toContain('approval-responded');
+        expect(serialized).not.toContain('已为你选好商品'); // 旧 assistant 文本一并剔除
+        // 本地面板保留旧消息（approvalSuperseded 投影锚点）+ 追加 edit 用户消息
+        expect(useAssistantStore.getState().messages[1]?.id).toBe(oldMessageId);
+        expect(useAssistantStore.getState().messages[2]).toMatchObject({
+            role: 'user',
+            text: expect.stringContaining('[订单修改重发]'),
+        });
+    });
+
+    it('editOrder（D11 方案 B，G3.3b）：USER_SEND 查表静默跳过（machine 无 entry）+ EDIT 事件不再发送 + 新审批卡替换旧卡 + superseded 投影（INT-HITL-03）', async () => {
+        await reachAwaitHuman();
+        const oldMessageId = useAssistantStore.getState().messages[1]?.id;
+
+        // 第二回合（edit 重发）：模型重新发起 placeOrder → 新审批挂起（新 toolCall 先登记，再挂起）
+        mockStreamChat.mockImplementation(async ({ onChunk }: StreamChatOptions) => {
+            onChunk({
+                type: 'tool-input-available',
+                toolCallId: 'call-edit-1',
+                toolName: 'placeOrder',
+                input: { items: [{ productId: 'p-order-2', quantity: 1 }] },
+            } as UIMessageChunk);
+            onChunk({
+                type: 'tool-approval-request',
+                approvalId: 'appr-2',
+                toolCallId: 'call-edit-1',
+                reason: 'placeOrder requires approval',
+                signature: 'sig-2',
+            } as UIMessageChunk);
+            onChunk({ type: 'finish', finishReason: 'tool-calls' } as UIMessageChunk);
+        });
+        useAssistantStore.getState().editOrder([{ productId: 'p-order-2', quantity: 1 }]);
+
+        await vi.waitFor(() => {
+            expect(useAssistantStore.getState().status).toBe('await_human');
+        });
 
         // 新审批卡替换旧卡：approval 状态整体换新；旧卡失效提示落 approvalSuperseded
-        const oldMessageId = useAssistantStore.getState().messages[1]?.id;
         expect(useAssistantStore.getState().approvalSuperseded).toEqual({
             messageId: oldMessageId,
             note: '已修改并重新发起',
@@ -821,22 +892,50 @@ describe('useAssistantStore G3.3 审批接线（裁决③④⑤）', () => {
             phase: 'pending',
         });
 
+        // machine（G3.3b 裁决①）：await_human 无 USER_SEND 出边 → 查表静默跳过（无日志 entry）；
+        // EDIT 事件不再发送（edit 不再是机器语义边的行使）；机器滞留 await_human，
+        // 新审批帧到达时 store 兜底直设 await_human（新表缺口，登记报告 §三）
         const machine = mockCreateMachine.mock.results[0]?.value;
-        // 表缺口（裁决⑥）：tool_calling + TOOL_CALL / APPROVAL_REQUEST 不在表内——
-        // 查表静默跳过（无日志 entry），store 兜底直设 await_human
         expect(machine.log.map((entry: { event: string }) => entry.event)).toEqual([
             'USER_SEND',
             'STREAM_START',
             'APPROVAL_REQUEST',
-            'EDIT',
         ]);
-        expect(machine.state).toBe('tool_calling'); // machine 滞留，store 兜底 await_human
+        expect(machine.state).toBe('await_human'); // machine 滞留，store 兜底 await_human
         expect(useAssistantStore.getState().status).toBe('await_human');
     });
 
-    it('edit 重发后的新卡 approve（machine 表缺口路径）：事件查表跳过但回放继续 → 执行回执 → done', async () => {
+    it('editOrder（D11 代价口径）：模型未重新发起 placeOrder（纯文本回复）→ 收尾兜底直设 done，UI 不滞留 await_human', async () => {
         await reachAwaitHuman();
-        // 第一轮回放到 edit 重发（machine 滞留 tool_calling 缺口）
+
+        // 第二回合：模型只回文本、不调工具（D11 代价：edit→新卡非确定性 100%，护栏外场景）
+        mockStreamChat.mockImplementation(async ({ onChunk }: StreamChatOptions) => {
+            onChunk({ type: 'text-start', id: 't2' } as UIMessageChunk);
+            onChunk({
+                type: 'text-delta',
+                id: 't2',
+                delta: '抱歉，没能按清单发起下单，请换个说法。',
+            } as UIMessageChunk);
+            onChunk({ type: 'text-end', id: 't2' } as UIMessageChunk);
+            onChunk({ type: 'finish', finishReason: 'stop' } as UIMessageChunk);
+        });
+        useAssistantStore.getState().editOrder([{ productId: 'p-order-2', quantity: 1 }]);
+
+        await vi.waitFor(() => {
+            expect(useAssistantStore.getState().status).toBe('done');
+        });
+        // 无新审批挂起：回合正常收官、输入恢复（EDIT_GAP_STATES 含 await_human 的兜底，
+        // 防 machine 滞留 await_human 导致 composer 永久锁定）
+        const state = useAssistantStore.getState();
+        expect(state.approval?.phase).toBe('edited'); // 旧卡保持已修改投影，无 pending 新卡
+        expect(state.error).toBeNull();
+        expect(state.messages.at(-1)?.text).toContain('没能按清单发起下单');
+    });
+
+    it('edit 重发后的新卡 approve（D11 后全程表内边）：APPROVE 从 await_human 合法出边 → 执行回执 → done', async () => {
+        await reachAwaitHuman();
+        // 第一回合 edit 重发（新用户回合）：模型重新发起 placeOrder → 新审批挂起；
+        // machine 滞留 await_human（USER_SEND 查表跳过，缺口登记 §三），store 兜底投影
         mockStreamChat.mockImplementationOnce(async ({ onChunk }: StreamChatOptions) => {
             onChunk({
                 type: 'tool-input-available',
@@ -857,7 +956,8 @@ describe('useAssistantStore G3.3 审批接线（裁决③④⑤）', () => {
             expect(useAssistantStore.getState().status).toBe('await_human');
         });
 
-        // 第二轮回放：新卡 approve —— machine 滞留 tool_calling（APPROVE 查表跳过），action 继续
+        // 第二轮回放：新卡 approve —— APPROVE 从 await_human → tool_calling（:97 表内边，
+        // D11 后 edit 重发不再制造 machine 滞留缺口），回放帧全程合法出边
         mockStreamChat.mockImplementationOnce(async ({ onChunk }: StreamChatOptions) => {
             onChunk({
                 type: 'tool-output-available',
@@ -880,13 +980,13 @@ describe('useAssistantStore G3.3 审批接线（裁决③④⑤）', () => {
             expect(useAssistantStore.getState().status).toBe('done');
         });
 
-        // 回放帧从 machine 滞留态 tool_calling 合法出边恢复：TOOL_RESULT → STREAM_START → STREAM_END
+        // 全程表内边：APPROVE（await_human→tool_calling）→ TOOL_RESULT → STREAM_START → STREAM_END
         const machine = mockCreateMachine.mock.results[0]?.value;
         expect(machine.log.map((entry: { event: string }) => entry.event)).toEqual([
             'USER_SEND',
             'STREAM_START',
             'APPROVAL_REQUEST',
-            'EDIT',
+            'APPROVE',
             'TOOL_RESULT',
             'STREAM_START',
             'STREAM_END',
@@ -1063,7 +1163,7 @@ describe('useAssistantStore G3.4 失败恢复（裁决①②）', () => {
     it('裁决① 回放 catch：edit 重发后新审批 pending 中流错误 → 保位 await_human + 新卡保留 + 卡内提示', async () => {
         await reachAwaitHuman();
 
-        // 第一轮回放（edit）：新 toolCall 登记 + 新审批挂起（pending），随后流错误
+        // 第二回合（edit 重发，D11 方案 B）：模型重新发起 placeOrder → 新审批挂起（pending），随后流错误
         mockStreamChat.mockImplementationOnce(async ({ onChunk }: StreamChatOptions) => {
             onChunk({
                 type: 'tool-input-available',

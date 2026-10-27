@@ -2,12 +2,8 @@ import { create } from 'zustand';
 import type { UIMessageChunk } from 'ai';
 
 import { useCartStore } from '../../cart/store/useCartStore';
-import {
-    buildApprovalReplayMessages,
-    buildEditReplayMessages,
-    ChatApiError,
-    streamChat,
-} from '../services/chatApi';
+import { useCatalogStore } from '../../catalog/store/useCatalogStore';
+import { buildApprovalReplayMessages, ChatApiError, streamChat } from '../services/chatApi';
 import { addToCartOutputSchema } from '../registry/uiRegistry';
 import {
     APPROVAL_TTL_MS,
@@ -58,14 +54,45 @@ let currentController: AbortController | null = null;
 /** 一回合一机（裁决①）：machine 实例由模块持有（不可序列化，不进 Zustand state）。 */
 let currentMachine: AssistantMachine | null = null;
 let messageSeq = 0;
-/** 客户端生成的 toolCallId 序号（edit 重新发起的新 toolCall，防与会话内 id 碰撞）。 */
-let toolCallSeq = 0;
 
 /** 生成面板内消息 id（无持久化需求，递增序号即可）。 */
 function nextMessageId(role: ChatMessage['role']): string {
     messageSeq += 1;
     return `${role}-${messageSeq}`;
 }
+
+/**
+ * 清单条目标题解析（D11 方案 B）：与审批卡同款数据源 —— 目录快照（ChatPanel 解析
+ * ApprovalCardItem 的同一份），快照未加载时回退 productId（消息仍含固定标记与数量，
+ * prompt 硬约束不依赖标题）。
+ */
+function resolveItemTitle(productId: string): string {
+    return (
+        useCatalogStore.getState().products.find((product) => product.id === productId)?.title ??
+        productId
+    );
+}
+
+/**
+ * edit 重发用户消息固定格式（D11 方案 B，G3.3b 裁决①；单测锁格式）：
+ * `[订单修改重发]` 固定标记 + 人读清单（标题 × 数量，分号分隔，阿拉伯数字）。
+ */
+function buildEditResendText(items: ApprovalItem[]): string {
+    const list = items
+        .map((item) => `${resolveItemTitle(item.productId)} × ${item.quantity}`)
+        .join('；');
+    return `[订单修改重发] 请按以下清单重新下单：${list}。请直接调用 placeOrder 工具提交（会再次经过审批），无需向我确认。`;
+}
+
+/** 收尾兜底匹配的机器滞留态：sendMessage 为忙碌三态（报告 §三表缺口）。 */
+const BUSY_GAP_STATES = ['thinking', 'tool_calling', 'tool_result'] as const;
+
+/**
+ * editOrder 重发回合的收尾兜底滞留态 = 忙碌三态 + await_human：
+ * await_human 无 USER_SEND 出边（TRANSITIONS 锁定），查表静默跳过后机器滞留 await_human
+ * （新表缺口，登记报告 §三）；模型未重新发起 placeOrder 时收尾须兜 done，防 UI 滞留死锁。
+ */
+const EDIT_GAP_STATES = [...BUSY_GAP_STATES, 'await_human'] as const;
 
 function isAbortError(error: unknown): boolean {
     return error instanceof DOMException && error.name === 'AbortError';
@@ -326,6 +353,90 @@ export const useAssistantStore = create<AssistantStore>((set, get) => {
         }
     };
 
+    /**
+     * 用户回合发流（sendMessage / editOrder 共用，G3.3b）：abort 旧代际 + A4 代际校验 +
+     * 查表收尾 + 表缺口兜底 + G3.4 审批 pending 保位，两条路径同一份实现。
+     * gapStates = 收尾兜底匹配的机器滞留态（sendMessage：忙碌三态；editOrder 追加
+     * await_human——USER_SEND 查表跳过后机器滞留，见 EDIT_GAP_STATES 注释）。
+     */
+    const runStreamTurn = async (
+        requestMessages: ChatRequestMessage[],
+        assistantMessage: ChatMessage,
+        fallbackStatus: AssistantState,
+        gapStates: readonly AssistantState[],
+        failedText: string,
+    ): Promise<void> => {
+        currentController?.abort();
+        currentController = new AbortController();
+        const { signal } = currentController;
+
+        /** 代际/取消校验：旧代际流或已取消流的收尾不得触碰 machine 与新状态（A4 裁决①）。 */
+        const isStale = () => signal.aborted || currentController?.signal !== signal;
+
+        try {
+            await streamChat({
+                messages: requestMessages,
+                signal,
+                onChunk: (chunk) =>
+                    handleChunk(chunk, assistantMessage.id, isStale, fallbackStatus),
+            });
+            // A4 代际校验（裁决①）：旧代际流正常收尾不得覆盖新回合
+            if (currentController !== null && currentController.signal !== signal) {
+                return;
+            }
+            if (sendMachineEvent(ASSISTANT_EVENT.StreamEnd)) {
+                set({ status: currentMachine?.state ?? 'done' }); // streaming→done
+            } else if (
+                gapStates.includes(currentMachine?.state ?? 'done') &&
+                get().approval?.phase !== 'pending'
+            ) {
+                // 表缺口兜底（报告 §三）：忙碌态/滞留态无 STREAM_END 边，回合已成功结束，store 直设
+                // done；审批 pending 时不顶 await_human（多步回合 tool_calling + APPROVAL_REQUEST
+                // 缺口，live 实测：搜索→下单两工具时 machine 滞留 tool_calling，live 2026-10-26 复现修复）
+                set({ status: 'done' });
+            } else if (get().approval?.phase === 'pending') {
+                // 审批挂起（hang but safe 已解除）：STREAM_END 在 await_human 无出边（查表跳过），
+                // 停驻 await_human 等用户在审批卡决策；approval-request 分支已落状态
+            }
+            // error / aborted：保持终态，不被收尾顶掉
+        } catch (error) {
+            // 竞态防护：aborted 后用户立刻发新消息时，旧请求的收尾不得覆盖新请求的状态
+            if (currentController !== null && currentController.signal !== signal) {
+                return;
+            }
+            // G3.4 裁决①：流错误/取消发生在审批 pending 中（多步回合审批挂起后流仍开）→
+            // 保位 await_human：不回写 error/aborted、不发 ERROR 事件，审批卡保留（server 侧审批
+            // 仍有效，决策/取消的续跑是新请求）；卡内落最小提示「操作失败，可重试」
+            if (get().approval?.phase === 'pending') {
+                set({ approvalNotice: '操作失败，可重试' });
+                return;
+            }
+            if (isAbortError(error) || signal.aborted) {
+                // 主动取消 ≠ 失败：停驻 aborted，不显示重试（design §5 取消语义）
+                set({ status: 'aborted', error: null });
+                return;
+            }
+            const message =
+                error instanceof ChatApiError ? error.message : '发生未知错误，请稍后重试';
+            const sent = sendMachineEvent(ASSISTANT_EVENT.Error);
+            if (sent) {
+                set({
+                    status: currentMachine?.state ?? 'error',
+                    error: message,
+                    lastFailedText: failedText,
+                });
+            } else {
+                // 表缺口兜底（报告 §三）：thinking / tool_result 无 ERROR 边（如首帧前的网络失败），
+                // machine 滞留原态，store 直设 error 保证横幅与输入恢复；machine 续跑见回合开头注释
+                set({ status: 'error', error: message, lastFailedText: failedText });
+            }
+        } finally {
+            if (currentController?.signal === signal) {
+                currentController = null;
+            }
+        }
+    };
+
     /** 审批回放目标构造（toolName/input 从审批态原样回传，签名按 input 校验）。 */
     const toReplayTarget = (approval: ApprovalRequestState) => ({
         messageId: approval.messageId,
@@ -386,79 +497,16 @@ export const useAssistantStore = create<AssistantStore>((set, get) => {
             };
             const nextMessages = [...messages, userMessage, assistantMessage];
 
-            currentController?.abort();
-            currentController = new AbortController();
-            const { signal } = currentController;
-
             // USER_SEND 的合法落点恒为 thinking；被表跳过（缺口兜底）时直设 thinking 保证 UI 不死锁
             set({ messages: nextMessages, status: 'thinking', error: null, lastFailedText: null });
 
-            /** 代际/取消校验：旧代际流或已取消流的收尾不得触碰 machine 与新状态（A4 裁决①）。 */
-            const isStale = () => signal.aborted || currentController?.signal !== signal;
-
-            try {
-                await streamChat({
-                    messages: toRequestMessages([...messages, userMessage]),
-                    signal,
-                    onChunk: (chunk) => handleChunk(chunk, assistantMessage.id, isStale, status),
-                });
-                // A4 代际校验（裁决①）：旧代际流正常收尾不得覆盖新回合
-                if (currentController !== null && currentController.signal !== signal) {
-                    return;
-                }
-                if (sendMachineEvent(ASSISTANT_EVENT.StreamEnd)) {
-                    set({ status: currentMachine?.state ?? 'done' }); // streaming→done
-                } else if (
-                    (currentMachine?.state === 'thinking' ||
-                        currentMachine?.state === 'tool_calling' ||
-                        currentMachine?.state === 'tool_result') &&
-                    get().approval?.phase !== 'pending'
-                ) {
-                    // 表缺口兜底（报告 §三）：空回复等场景忙碌态无 STREAM_END 边，回合已成功结束，store 直设
-                    // done；审批 pending 时不顶 await_human（多步回合 tool_calling + APPROVAL_REQUEST
-                    // 缺口，live 实测：搜索→下单两工具时 machine 滞留 tool_calling，live 2026-10-26 复现修复）
-                    set({ status: 'done' });
-                } else if (get().approval?.phase === 'pending') {
-                    // 审批挂起（hang but safe 已解除）：STREAM_END 在 await_human 无出边（查表跳过），
-                    // 停驻 await_human 等用户在审批卡决策；approval-request 分支已落状态
-                }
-                // error / aborted：保持终态，不被收尾顶掉
-            } catch (error) {
-                // 竞态防护：aborted 后用户立刻发新消息时，旧请求的收尾不得覆盖新请求的状态
-                if (currentController !== null && currentController.signal !== signal) {
-                    return;
-                }
-                // G3.4 裁决①：流错误/取消发生在审批 pending 中（多步回合审批挂起后流仍开）→
-                // 保位 await_human：不回写 error/aborted、不发 ERROR 事件，审批卡保留（server 侧审批
-                // 仍有效，决策/取消的续跑是新请求）；卡内落最小提示「操作失败，可重试」
-                if (get().approval?.phase === 'pending') {
-                    set({ approvalNotice: '操作失败，可重试' });
-                    return;
-                }
-                if (isAbortError(error) || signal.aborted) {
-                    // 主动取消 ≠ 失败：停驻 aborted，不显示重试（design §5 取消语义）
-                    set({ status: 'aborted', error: null });
-                    return;
-                }
-                const message =
-                    error instanceof ChatApiError ? error.message : '发生未知错误，请稍后重试';
-                const sent = sendMachineEvent(ASSISTANT_EVENT.Error);
-                if (sent) {
-                    set({
-                        status: currentMachine?.state ?? 'error',
-                        error: message,
-                        lastFailedText: trimmed,
-                    });
-                } else {
-                    // 表缺口兜底（报告 §三）：thinking / tool_result 无 ERROR 边（如首帧前的网络失败），
-                    // machine 滞留原态，store 直设 error 保证横幅与输入恢复；machine 续跑见回合开头注释
-                    set({ status: 'error', error: message, lastFailedText: trimmed });
-                }
-            } finally {
-                if (currentController?.signal === signal) {
-                    currentController = null;
-                }
-            }
+            await runStreamTurn(
+                toRequestMessages([...messages, userMessage]),
+                assistantMessage,
+                status,
+                BUSY_GAP_STATES,
+                trimmed,
+            );
         },
 
         approve() {
@@ -513,29 +561,58 @@ export const useAssistantStore = create<AssistantStore>((set, get) => {
             const { status, approval, messages } = get();
             if (status !== 'await_human' || approval?.phase !== 'pending') return;
             if (items.length === 0) return;
-            // 查表预判（裁决①）：await_human + EDIT → tool_calling（:99 合法边）；edit 重发后的
-            // machine 滞留缺口同 approve——事件查表跳过但 action 继续（新审批挂起由回放帧兜底）
-            sendMachineEvent(ASSISTANT_EVENT.Edit, { tool: approval.toolName });
-            toolCallSeq += 1;
-            const newToolCallId = `call-edit-${toolCallSeq}`;
-            const newInput = {
-                ...(approval.rawInput as Record<string, unknown>),
-                items,
+            // D11 方案 B（G3.3b）：edit = 修正意图作新用户回合进官方消息流，由模型重新发起
+            // placeOrder → SDK 原生 toolApproval 二次挂起新审批卡。不再伪造 toolCall part
+            // （ai@7 本地校验历史 toolCall 必带 result，伪造即 MissingToolResultsError，edit live
+            // 100% 必现的根因，ADR D11）；四护栏：prompt 硬约束（chat-prompt.ts）+ zod input
+            // schema + 二次审批卡人工复核 + G3.4 error 兜底（本函数收尾走 runStreamTurn 同款）。
+            // machine 语义：await_human 无 USER_SEND 出边（TRANSITIONS 锁定）——查表静默跳过 +
+            // store 直设 thinking（sendMessage 既有兜底手法，新表缺口登记报告 §三）；EDIT 事件
+            // 不再发送（edit 不再是机器语义边的行使，D11 后 approve/reject 回放路径不受影响）。
+            const editText = buildEditResendText(items);
+            const userMessage: ChatMessage = {
+                id: nextMessageId('user'),
+                role: 'user',
+                text: editText,
+                reasoning: '',
             };
+            const assistantMessage: ChatMessage = {
+                id: nextMessageId('assistant'),
+                role: 'assistant',
+                text: '',
+                reasoning: '',
+                toolCalls: [],
+            };
+            // 消息历史截断不变式（防 MissingToolResultsError 复发，G3.3b 裁决①）：
+            // 请求体 = 当前历史剔除含未应答审批的 assistant 消息（approval.messageId）+
+            // edit 用户消息；本地面板保留旧消息（approvalSuperseded 投影锚定旧 messageId）。
+            const requestMessages: ChatRequestMessage[] = [
+                ...toRequestMessages(
+                    messages.filter((message) => message.id !== approval.messageId),
+                ),
+                { role: 'user', parts: [{ type: 'text', text: editText }] },
+            ];
+
+            sendMachineEvent(ASSISTANT_EVENT.UserSend); // await_human 无出边：查表静默跳过（缺口登记 §三）
+
+            // USER_SEND 被表跳过后 store 直设 thinking（sendMessage 同款兜底，保证 UI 不死锁）
             set({
+                messages: [...messages, userMessage, assistantMessage],
+                status: 'thinking',
                 approval: { ...approval, phase: 'edited' },
                 approvalSuperseded: { messageId: approval.messageId, note: '已修改并重新发起' },
                 approvalNotice: null,
-                status: currentMachine?.state ?? 'tool_calling',
+                error: null,
+                lastFailedText: null,
             });
-            // 重发形态（裁决③）：不发审批响应 —— 新 toolCall part（新 toolCallId + 修改后 items）
-            const requestMessages = buildEditReplayMessages(messages, {
-                messageId: approval.messageId,
-                toolCallId: newToolCallId,
-                toolName: approval.toolName,
-                input: newInput,
-            });
-            void runApprovalReplay(requestMessages);
+
+            void runStreamTurn(
+                requestMessages,
+                assistantMessage,
+                'await_human',
+                EDIT_GAP_STATES,
+                editText,
+            );
         },
 
         cancelOrder() {

@@ -81,38 +81,7 @@ export function buildApprovalReplayMessages(
 }
 
 /**
- * edit 重新发起回放（G3.3 裁决③）：不发审批响应 —— 目标 assistant 消息追加新 tool-call part
- * （新 toolCallId + 修改后 input，state=input-available 的纯 tool-call part）。
- */
-export function buildEditReplayMessages(
-    messages: ChatMessage[],
-    target: {
-        messageId: string;
-        toolCallId: string;
-        toolName: string;
-        input: unknown;
-    },
-): ChatRequestMessage[] {
-    const requestMessages: ChatRequestMessage[] = messages.map((message) => ({
-        role: message.role,
-        parts: [{ type: 'text' as const, text: message.text }],
-    }));
-    const replayMessage = requestMessages[getMessageIndex(messages, target.messageId)];
-    if (replayMessage !== undefined && replayMessage.role === 'assistant') {
-        replayMessage.parts = [
-            ...replayMessage.parts.filter((part) => part.type === 'text' && part.text !== ''),
-            {
-                type: `tool-${target.toolName}`,
-                toolCallId: target.toolCallId,
-                state: 'input-available' as const,
-                input: target.input,
-            },
-        ];
-    }
-    return requestMessages;
-}
-
-/** 面板消息 id → 请求体下标（请求体无 id 字段，按下标对齐）。 */
+ * 面板消息 id → 请求体下标（请求体无 id 字段，按下标对齐）。 */
 function getMessageIndex(messages: ChatMessage[], messageId: string): number {
     return messages.findIndex((message) => message.id === messageId);
 }

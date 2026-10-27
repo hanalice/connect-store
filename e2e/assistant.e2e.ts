@@ -533,7 +533,7 @@ test('E2E-AI-20 reject 修正链路：deny 复放 → 修正文本出现 + 卡�
     await expect(page.getByLabel('消息输入框')).toBeEnabled();
 });
 
-test('E2E-AI-21 edit 重新发起：卡内改数量 / 移除条目 → 新 toolCall → 新审批卡替换旧卡 → 通过新卡完成（INT-HITL-03）', async ({
+test('E2E-AI-21 edit 重新发起：卡内改数量 / 移除条目 → edit 用户消息（D11 方案 B）→ 模型重新发起 → 新审批卡替换旧卡 → 通过新卡完成（INT-HITL-03）', async ({
     page,
 }) => {
     await routeOrderProducts(page);
@@ -547,6 +547,8 @@ test('E2E-AI-21 edit 重新发起：卡内改数量 / 移除条目 → 新 toolC
     await expect(card).toContainText('合计 $17.50');
     await card.getByRole('button', { name: '移除 付费模板 Alpha' }).click();
     await expect(card).toContainText('合计 $7.50');
+    // D11 方案 B（G3.3b）：确认修改 = 追加「[订单修改重发]」用户消息进官方消息流，
+    // 由模型重新发起 placeOrder（不再伪造 toolCall part——live 100% MissingToolResultsError 根因修复）
     await card.getByRole('button', { name: '确认修改并重新发起' }).click();
 
     // 旧卡被替换为失效提示（<p>，非卡），新卡（新审批单号 + 修改后 items）渲染

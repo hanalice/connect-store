@@ -1,5 +1,7 @@
 /**
  * E2E mock BFF（8787 端口）：按请求最后一条 user 消息文本里的场景标记下发受控 SSE。
+ * 例外：edit 重发的末条 user 消息只含「订单修改重发」清单标记（D11 方案 B 新用户回合，
+ * 不含原场景标记）——它是 __e2e_order__ 场景的续流，pickScenario 单独分流，见该函数。
  * 帧格式 = 官方 UI 消息流（UIMessageChunk）：`data: {JSON}\n\n` 帧 + `data: [DONE]\n\n` 哨兵，
  * Content-Type: text/event-stream。仅被 Playwright webServer 拉起，与 server/ 真实 BFF 无关。
  *
@@ -17,11 +19,12 @@
  *   __e2e_tool_error__  工具失败：tool-input-available → tool-output-error → finish
  *   __e2e_cart__        加购流（G3.1）：tool-input-available(addToCart) → [闸门 cart] →
  *                       tool-output-available({ productId, quantity, product }) → 正文 → finish
- *   __e2e_order__       订单审批流（G3.3，有状态分流）：首请求 → 正文 + tool-input-available(placeOrder)
- *                       + tool-approval-request → 停驻 await_human（流结束，hang but safe）；
- *                       第二请求按消息体分流 —— approval-responded part（approved:true → 执行回执
- *                       + 订单号文本；approved:false → tool-output-denied + 修正文本）；
- *                       新 toolCall part（input-available）→ 新 tool-input-available +
+ *   __e2e_order__       订单审批流（G3.3，有状态分流；G3.3b 改识别点）：首请求 → 正文 +
+ *                       tool-input-available(placeOrder) + tool-approval-request → 停驻 await_human
+ *                       （流结束，hang but safe）；第二请求按消息体分流 —— approval-responded part
+ *                       （approved:true → 执行回执 + 订单号文本；approved:false → tool-output-denied +
+ *                       修正文本）；末条 user 消息含「订单修改重发」标记（G3.3b / D11 方案 B：edit
+ *                       重发作新用户回合，由模型重新发起）→ 新 tool-input-available +
  *                       新 tool-approval-request（新审批挂起）
  *   __e2e_order_fail__  订单审批流错误变体（G3.4，有状态分流）：首请求审批挂起后推 error chunk
  *                       （流错误发生在审批 pending 中，保位实证场景，E2E-AI-24）；
@@ -332,6 +335,12 @@ const ORDER_ITEMS = [
     { productId: 'p-order-2', quantity: 2 },
 ];
 
+/**
+ * edit 重发后的修改清单夹具（G3.3b，D11 方案 B）：镜像 E2E-AI-21 的卡内操作
+ * （音效包 Beta 2→1、移除付费模板 Alpha）——mock 无目录快照，不从标题文本反解析 productId。
+ */
+const ORDER_ITEMS_EDITED = [{ productId: 'p-order-2', quantity: 1 }];
+
 /** 首请求：正文 → placeOrder 工具调用 → 审批请求（帧后流结束：审批挂起即停步，不自动续跑）。 */
 async function runOrderInitial(res) {
     writeFrame(res, { type: 'start' });
@@ -407,8 +416,8 @@ async function runOrderDenied(res) {
 }
 
 /**
- * edit 续流：服务端按新 toolCall 重新签发审批（新 toolCall 先登记、再挂起）——
- * 第二请求里新 toolCallId / 修改后 items 原样回显。
+ * edit 续流（G3.3b 复用既有续流函数）：模型重新发起 placeOrder —— 服务端按新 toolCall
+ * 重新签发审批（新 toolCall 先登记、再挂起），新 toolCallId / 修改后 items 回显进帧。
  */
 async function runOrderEdit(res, toolPart) {
     writeFrame(res, { type: 'start' });
@@ -446,7 +455,7 @@ function extractToolParts(raw) {
     }
 }
 
-/** __e2e_order__ 有状态分流：按第二请求内容分 approved / denied / 新 toolCall 三支续流。 */
+/** __e2e_order__ 有状态分流：approval-responded 决策续流 / 「订单修改重发」edit 重发续流 / 首请求。 */
 function runOrderScenario(res, raw) {
     const toolParts = extractToolParts(raw);
     const responded = toolParts.find((p) => p.state === 'approval-responded');
@@ -455,9 +464,14 @@ function runOrderScenario(res, raw) {
             ? runOrderApproved(res, responded.toolCallId)
             : runOrderDenied(res);
     }
-    const freshCall = toolParts.find((p) => p.state === 'input-available');
-    if (freshCall !== undefined) {
-        return runOrderEdit(res, freshCall);
+    // G3.3b（D11 方案 B）：edit 重发 = 修正意图作新用户回合（末条 user 消息含「订单修改重发」
+    // 标记），不再以 input-available tool part 启发式识别（伪造 toolCall 形态已停用：
+    // ai@7 本地校验历史 toolCall 必带 result，live 100% 抛 MissingToolResultsError，ADR D11）
+    if (extractUserText(raw).includes('订单修改重发')) {
+        return runOrderEdit(res, {
+            toolCallId: 'call-order-2',
+            input: { items: ORDER_ITEMS_EDITED },
+        });
     }
     return runOrderInitial(res);
 }
@@ -516,6 +530,10 @@ function pickScenario(text, raw) {
     if (text.includes('__e2e_tool_unknown__')) return runToolUnknown;
     if (text.includes('__e2e_cart__')) return runCart;
     if (text.includes('__e2e_order_fail__')) return (res) => runOrderFailScenario(res, raw);
+    // G3.3b（D11 方案 B）：edit 重发 = 新用户回合 —— 末条 user 消息只含「订单修改重发」清单标记
+    //（原 __e2e_order__ 标记在历史首条），是订单场景的续流：直接分流进 runOrderScenario
+    //（其内再按 approval-responded / 重发标记 / 首请求三支分流）
+    if (text.includes('订单修改重发')) return (res) => runOrderScenario(res, raw);
     if (text.includes('__e2e_order__')) return (res) => runOrderScenario(res, raw);
     if (text.includes('__e2e_tool__')) return runTool;
     return runDefault;
