@@ -20,4 +20,10 @@ describe('G3.3b 裁决②：edit 重发 prompt 硬约束（ADR D11 方案 B 四�
     it('存量约束零弱化：placeOrder 必经审批表述原样保留', () => {
         expect(CHAT_SYSTEM_PROMPT).toContain('所有订单都必须经过用户确认，不存在免审批路径');
     });
+
+    it('H2 热修（PM 追认条款）：placeOrder 两个时刻分述在位——已执行报结果、挂起才说等待确认', () => {
+        expect(CHAT_SYSTEM_PROMPT).toContain('工具返回执行结果（含订单号）');
+        expect(CHAT_SYSTEM_PROMPT).toContain('工具挂起未返回结果（等待界面审批）');
+        expect(CHAT_SYSTEM_PROMPT).toContain('不要说「等待确认」');
+    });
 });
