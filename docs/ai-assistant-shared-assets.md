@@ -126,7 +126,7 @@
 
 ## A10. 状态投影表模式（状态 → UI 语义 Record 查表）
 
-- **来源任务**：G2.3
+- **来源任务**：G2.3（报告 §四 已登记）
 - **解决什么问题**：状态机的状态值若散落在 JSX 条件分支里渲染，新增状态时无法静态
   审计投影完整性；badge 文案/色调与状态一一对应，漏投影会在 UI 层静默 fallback。
 - **复用方式**：`STATE_PROJECTION: Record<AssistantState, {label, tone}>` 单表查投影，
@@ -137,7 +137,7 @@
 
 ## A11. 价格语义 system prompt 声明模式
 
-- **来源任务**：G2.3（G2.1 §五③ 强制输入）
+- **来源任务**：G2.3（G2.1 §五③ 强制输入；报告 §四 已登记）
 - **解决什么问题**：`pricingOption` 枚举（0/1/2 = 付费/免费/增值）是项目私有语义，
   LLM 无从知晓；不声明则模型按自然语言自由发挥，工具入参过滤错误率飙升。
 - **复用方式**：system prompt 用结构化清单声明每个枚举值的含义与使用场景
@@ -147,7 +147,7 @@
 
 ## A12. zod 运行时校验白名单模式（registry 输出契约）
 
-- **来源任务**：G2.4
+- **来源任务**：G2.4（报告 §四 已登记）
 - **解决什么问题**：Generative UI 渲染的数据来自 LLM 工具输出（不可信外部输入），
   直接渲染会让坏数据/畸形结构进组件；TS 类型在运行时归零。
 - **复用方式**：registry 每类输出一份 zod schema（镜像存量 Product 契约），
@@ -157,7 +157,7 @@
 
 ## A13. 渲染双层防护（白名单查表 + ErrorBoundary）
 
-- **来源任务**：G2.4
+- **来源任务**：G2.4（报告 §四 已登记）
 - **解决什么问题**：单层防护各有洞——白名单查表挡不住「注册过的组件自己抛错」，
   ErrorBoundary 挡不住「未注册 toolName 渲染任意组件」。
 - **复用方式**：第一层 registry 查表（未注册 → fallback 文本，绝不按 toolName 拼
@@ -167,7 +167,7 @@
 
 ## A14. E2E 计算样式列数断言法
 
-- **来源任务**：G2.4（裁决⑥）
+- **来源任务**：G2.4（裁决⑥；报告 §四 已登记）
 - **解决什么问题**：响应式网格「气泡内恒定 2 列」靠 CSS 媒体查询实现，E2E 无法靠
   截图/类名断言；视口变化下肉眼不可回归。
 - **复用方式**：`getComputedStyle(el).gridTemplateColumns.split(' ').length` 用
@@ -177,7 +177,7 @@
 
 ## A15. ai SDK v7 帧协议事实（tool-output-available 无 toolName / toolCallId 反查）
 
-- **来源任务**：G3.2 / G3.3（接线必读）
+- **来源任务**：G3.2 / G3.3（接线必读；报告 §四 已登记）
 - **解决什么问题**：v7 的 `tool-output-available` 帧只带 `toolCallId + output`，
   不带 toolName；`approval-responded` 等帧协议字段形状与直觉不符，按旧版 SDK 经验
   接线会写错。
@@ -188,7 +188,7 @@
 
 ## A16. Zustand persist 落地惯例
 
-- **来源任务**：G3.1
+- **来源任务**：G3.1（报告 §四 已登记）
 - **解决什么问题**：购物车跨页/刷新恢复的 persist 配置细节（storage key 冲突、
   partialize 范围、version 迁移）没有惯例时每个 store 各写一套，易互相踩 key。
 - **复用方式**：`persist(..., { name, partialize: 只持久化业务数据（UI 态如 drawer
@@ -198,7 +198,7 @@
 
 ## A17. 审批协议帧字段实测口径
 
-- **来源任务**：G3.2 / G3.3
+- **来源任务**：G3.2 / G3.3（报告 §四 已登记）
 - **解决什么问题**：tool-approval-request 帧字段全集（approvalId / toolCallId /
   reason / signature）与 approval-responded 回放 part 的字段口径只有实测才可靠；
   `inputSchemaInput` 回环有 hasOwnProperty 陷阱——SDK 按 hasOwnProperty 判分支，
@@ -211,7 +211,7 @@
 
 ## A18. edit 重发形态（新 tool-call part 绕行）
 
-- **来源任务**：G3.3（裁决③）
+- **来源任务**：G3.3（裁决③；报告 §四 已登记）
 - **解决什么问题**：审批中的 edit 不能发 approval-responded（那会触发 approve/deny
   语义），需要「不发审批响应、带修改重新发起」的协议形态。
 - **复用方式**：edit 走新 toolCall part（input-available 态，新 toolCallId + 修改后
@@ -222,7 +222,7 @@
 
 ## A19. badge/drawer 双通道触发 + accessible name 形态锁定单测法
 
-- **来源任务**：G3.1 / G3.1a
+- **来源任务**：G3.1 / G3.1a（报告 §四 已登记）
 - **解决什么问题**：同一业务结果（加购）触发两处 UI 反应（badge 计数 + drawer
   自动打开），只测一处会漏联动回归；购物车角标 accessible name 形态
   （「购物车，N 件商品」）是 E2E 定位锚点，形态漂移即断全部用例。

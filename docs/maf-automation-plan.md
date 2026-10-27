@@ -65,8 +65,8 @@ PM 子代理（独立上下文）：
 | Architecture   | 已有产物：design 全文 + ADR D1–D10             | 直接标 completed |
 | Security       | 已有产物：硬约束 / ADR D9 / design §8 安全节   | 直接标 completed |
 | Implementation | G1.4 → G3.4（每 G 一个三段式微循环）           | completed        |
-| Validation     | G4.1 测试矩阵 + 全量回归 + Playwright E2E 全绿 | pending          |
-| Operations     | G4.2–G4.4（README / 文档 / 验收收口）          | pending          |
+| Validation     | G4.1 测试矩阵 + 全量回归 + Playwright E2E 全绿 | completed        |
+| Operations     | G4.2–G4.4（README / 文档 / 验收收口）          | completed        |
 
 ## 4. 编排器与工单生命周期（v0.3 新增）
 

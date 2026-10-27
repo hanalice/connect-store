@@ -356,9 +356,11 @@ export const UI_REGISTRY: Record<string, (call: ToolCallOutput) => ReactNode> = 
 server/
 ├── index.ts          # Hono 入口 + 中间件（CORS 白名单/请求体限制）
 ├── chat.ts           # POST /api/chat → streamText + tools + toolApproval（官方 UI 消息流）
+├── chat-prompt.ts    # system prompt：价格语义声明（pricingOption 枚举 + 「免费 ≠ price 0」纠偏，资产 A11）
 ├── orders.ts         # 审批业务状态层（ADR D9）：订单表四态 + issuedAt/expiresAt + TTL + 审计日志 + 惰性过期 + 按 orderId 查询 + mock 下单执行
 ├── approvals.ts      # toolApproval 策略：placeOrder 恒 'user-approval'（缺 APPROVAL_SECRET 恒 denied）+ 阈值分级（默认 $50）+ 签发时刻表（TTL 300s 复放判定）
 ├── tools/
+│   ├── index.ts             # 工具注册表（全项目唯一一份）：dev 直调端点与 /api/chat 回路共用 + zod inputSchema 约定
 │   ├── searchCatalog.ts     # 结构化查询：关键词(title/creator) + 免费/付费/仅查看 + 排序 + 价格区间(maxPrice/minPrice)
 │   ├── getProductDetails.ts
 │   ├── addToCart.ts
@@ -376,14 +378,14 @@ server/
 
 ## 9. 测试策略
 
-| 层                     | 工具             | 测什么                                                                                      |
-| ---------------------- | ---------------- | ------------------------------------------------------------------------------------------- |
-| 状态机                 | Vitest（纯函数） | **转换表驱动测试**：≥6 条路径每条一个用例 + 非法转换拒绝                                    |
-| Generative UI registry | Vitest           | 白名单 4 类用例：放行/拒绝/参数校验/拒绝响应                                                |
-| 组件                   | RTL              | ChatPanel 流式渲染（fake timers + 分片 mock）/ ApprovalCard 三按钮                          |
-| 传输层（自研）         | Vitest           | 构造 `UIMessageChunk` 受控流 → 断言 part 投影与状态转换（LLM 是不确定依赖，测试必须确定性） |
-| 审批协议 + TTL         | Vitest           | approve / reject / edit / 超时(`expired`) / 未审批拦截(签名) 五类用例                       |
-| E2E（可选）            | Playwright       | 完整旅程：对话→工具→加购→审批→下单                                                          |
+| 层                     | 工具             | 测什么                                                                                                                |
+| ---------------------- | ---------------- | --------------------------------------------------------------------------------------------------------------------- |
+| 状态机                 | Vitest（纯函数） | **转换表驱动测试**：≥6 条路径每条一个用例 + 非法转换拒绝                                                              |
+| Generative UI registry | Vitest           | 白名单 4 类用例：放行/拒绝/参数校验/拒绝响应                                                                          |
+| 组件                   | RTL              | ChatPanel 流式渲染（fake timers + 分片 mock）/ ApprovalCard 三按钮                                                    |
+| 传输层（自研）         | Vitest           | 构造 `UIMessageChunk` 受控流 → 断言 part 投影与状态转换（LLM 是不确定依赖，测试必须确定性）                           |
+| 审批协议 + TTL         | Vitest           | approve / reject / edit / 超时(`expired`) / 未审批拦截(签名) 五类用例                                                 |
+| E2E                    | Playwright       | 完整旅程：对话→工具→加购→审批→下单（**CI 门禁 + 本地三连跑硬指标**，G4.1 落地；live 冒烟 @live 隔离、手动非默认门禁） |
 
 ---
 
@@ -455,5 +457,6 @@ server/
 | 2026-10-13 | v0.3.1 职责边界收紧：本 Showcase 承担 AI 交互层证据（Generative UI / 状态机投影 / HITL）+ React 底层深度；检索 / 编排层证据归 newtalk，避免重复叙事                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | ✅ 已确认                |
 | 2026-10-16 | v0.4：① 协议路线定为自研传输 + 官方 UI 消息流；② Generative UI 改官方 `tool-${toolName}` 分发 + 复用存量 ProductGrid / ProductCard / EmptyState；③ **撤销语义检索**（连带删 embedding / retrieval / descriptions）；④ 新增 `aborted` 状态（三条约束 + 审批取消统一）；⑤ HITL 改「SDK 原生 `toolApproval` + 签名 + 自建订单表」分层方案 + 阈值分级；⑥ `searchCatalog` 增 maxPrice / minPrice；⑦ 修 §10 Phase 1 的 Express 残留；⑧ 投入 7 → 6.5 天                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | ✅ 已确认                |
 | 2026-10-27 | v0.5 (final)：G0–G4 全程执行期偏差收敛（只动实现描述，v0.4 技术决策原样保留，§4 / §6.2 / §11 / ADR 引用语句一字未改）——① §1.1 测试基线 27 → 终版 232（根 137 + server 72 + E2E mock 23，事实源 regression-index §1）；② §3 补全系统 mermaid 架构图（与 §5 状态机、§7 结构一致）；③ §5 mermaid 补 `STREAM_START` 两条边标注 + 事件枚举 11 → 12 + await_human 投影注释（G3.3 已真实可达）；④ §6.3 edit 分支按 G3.3 落地形态改写（不发审批响应、新 toolCall 重发，非原 union 的 `edits` 载荷）；⑤ §7 registry 输入签名 `(part: ToolPart)` → `{toolName, output, error?}`（G2.4 裁决⑦）+ 补 `tool-addToCart` key（G3.1 裁决④）+ 「气泡内退化为 1 列」改实测口径（视口驱动媒体查询，wrapper 恒定 2 列，G2.4 裁决⑥）+ `tool-placeOrder` 行按实现改写（执行回执 OrderResultCard；审批卡 ApprovalCard 内嵌订单摘要、不经 registry，G3.3 裁决②）；⑥ §8 orders.ts / approvals.ts / tools/placeOrder.ts 目录注释同步；⑦ §10 Phase 1–4 落地完成标注 + 各 Phase 验证标准实测结果 | ✅ PM 已签核（G4.3 §六） |
+| 2026-10-27 | v0.5 G4.4 补丁（签核后极小补丁纪律，不升版本号）：① §8 目录树补 `chat-prompt.ts` / `tools/index.ts` 两行；② §9「E2E（可选）」行对齐 CI 门禁现实（E2E = CI 门禁 + 本地三连跑硬指标，live 冒烟隔离非默认门禁）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | ✅ G4.4 补丁             |
 
 ---

@@ -49,7 +49,7 @@
 
 | ID        | Title                          | Description                                                                                      | Expected Result                                                                               |
 | --------- | ------------------------------ | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
-| UT-REG-01 | Whitelist Component Dispatch   | Pass valid registered payload for `productGrid` or `priceSummary`.                               | Component resolves and renders with validated props matching JSON Schema.                     |
+| UT-REG-01 | Whitelist Component Dispatch   | Pass valid registered payload for `productGrid` or `priceSummary`.                               | Component resolves and renders with validated props passing zod runtime validation.           |
 | UT-REG-02 | Unknown Component Block        | AI emits payload requesting an unregistered component (e.g. `ArbitraryRawHTML` or `AdminPanel`). | Dispatcher strictly rejects unregistered key; renders safe fallback badge without crashing.   |
 | UT-REG-03 | Schema Validation Failure      | Registered component payload has malformed or missing fields (e.g. invalid price/id type).       | Schema validator rejects payload; logs validation error; displays inline error indicator.     |
 | UT-REG-04 | Component Error Boundary Guard | Registered component throws unhandled runtime error during rendering.                            | Caught by component-level Error Boundary; displays localized fallback; chat stream continues. |
