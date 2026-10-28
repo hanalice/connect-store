@@ -66,9 +66,9 @@ describe('CartDrawer（G5.1 方向 D 只读投影）', () => {
         expect(within(drawer).queryByRole('button', { name: '删除 免费素材 Alpha' })).toBeNull();
         expect(within(drawer).queryByRole('button', { name: /删除/ })).toBeNull();
         expect(within(drawer).queryByRole('button', { name: '清空购物车' })).toBeNull();
-        // 唯一可交互按钮 = 关闭；「去结算」维持 disabled 占位（裁决⑤）
+        // 唯一可交互按钮 = 关闭；「去结算」维持 disabled 引导（裁决⑤ → 2026-10-28 方案 C 文案）
         expect(within(drawer).getByRole('button', { name: '关闭购物车' })).toBeEnabled();
-        expect(within(drawer).getByRole('button', { name: '去结算（即将上线）' })).toBeDisabled();
+        expect(within(drawer).getByRole('button', { name: '对 AI 说「下单」结算' })).toBeDisabled();
     });
 
     it('空态与关闭态：关闭时不渲染；打开空购物车 → 空态文案与 disabled 占位', () => {
@@ -80,7 +80,7 @@ describe('CartDrawer（G5.1 方向 D 只读投影）', () => {
         const drawer = screen.getByRole('dialog', { name: '购物车' });
         expect(within(drawer).getByText('购物车是空的')).toBeInTheDocument();
         expect(within(drawer).getByTestId('cart-total')).toHaveTextContent('$0.00');
-        expect(within(drawer).getByRole('button', { name: '去结算（即将上线）' })).toBeDisabled();
+        expect(within(drawer).getByRole('button', { name: '对 AI 说「下单」结算' })).toBeDisabled();
     });
 
     it('打开后聚焦关闭按钮，Tab 循环圈禁，Escape 关闭并恢复 badge 焦点', async () => {

@@ -144,11 +144,11 @@ function DrawerContent() {
                             ${totalPrice.toFixed(2)}
                         </span>
                     </div>
-                    {/* 占位（裁决⑤）：下单交互归 G3.2 / G3.3，本 G 仅 disabled 静态占位。
-                        G5.1 方向 D：「清空购物车」随 single-writer 收口移除——清空由 AI 经
-                        clearCart 工具回执执行（裁决①-b），drawer 不再提供人工写入口。 */}
+                    {/* 结算引导（2026-10-28 用户拍板方案 C）：保留 disabled 按钮形态维持视觉
+                        完整性，文案从「即将上线」改为导购引导——传统人工结算不建设，结算由
+                        「对 AI 说下单 → 审批卡」承载（方向 D story 引子，无迷惑性）。 */}
                     <button type="button" className={styles.checkoutButton} disabled>
-                        去结算（即将上线）
+                        对 AI 说「下单」结算
                     </button>
                 </footer>
             </aside>
