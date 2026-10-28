@@ -4,7 +4,7 @@ AI shopping assistant with human-in-the-loop (HITL) order approval on a performa
 
 <!--
 讲述大纲（≤300s）
-1 Features 45s：口语购物；工具=检索/详情/加购/下单；三出边 approve/reject(AI 重规划)/edit；TTL 300s+HMAC 双拦截。
+1 Features 45s：口语购物；工具=检索/详情/加购/清空/下单；三出边 approve/reject(AI 重规划)/edit；TTL 300s+HMAC 双拦截。
 2 Architecture 50s：前端 FSM 只投影；BFF 独握 Key；审批两层=SDK toolApproval+内存订单表。
 3 Tech 35s：React 19+TS7+Vite8+Zustand persist/Hono+ai@7/Vitest+RTL+Playwright。
 4 HITL 60s：对话→推荐→加购→下单(await_human)→审批→订单号；超 TTL 300s 惰性过期、伪造被 HMAC 拦；亮点=reject 理由回流。
@@ -15,7 +15,7 @@ AI shopping assistant with human-in-the-loop (HITL) order approval on a performa
 ## Features
 
 - **AI chat** — natural-language shopping ("games under $20") streamed from an LLM; the catalog is its toolbox.
-- **Tool loop** — `searchCatalog` (keyword/pricing/sort/price range), `getProductDetails`, `addToCart`, `placeOrder`, live in a tool-call panel; a whitelist registry renders results as product cards.
+- **Tool loop** — `searchCatalog` (keyword/pricing/sort/price range), `getProductDetails`, `addToCart`, `clearCart`, `placeOrder`, live in a tool-call panel; a whitelist registry renders results as product cards.
 - **HITL approval** — no human click, no execution: approve, reject (AI re-plans with your reason), or edit (re-enters approval); pending dies after a 300s TTL, forged fails HMAC at the BFF.
 - **Catalog base** — `IntersectionObserver` infinite scroll, URL-synced search/filters, deterministic priority sorting.
 
@@ -28,7 +28,7 @@ Frontend (React 19 · TS 7 · Vite 8 · Zustand)
    │ POST /api/chat (official UI message stream)
 BFF (Hono · AI SDK v7); LLM_API_KEY stays server-side
  tools: searchCatalog · getProductDetails ·
- addToCart · placeOrder
+ addToCart · clearCart · placeOrder
  approval two layers: SDK toolApproval + HMAC;
  order table in memory (TTL 300s · by orderId)
    └→ LLM API
