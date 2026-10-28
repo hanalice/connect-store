@@ -154,17 +154,18 @@ describe('ProductCard Component', () => {
         expect(screen.getByLabelText(/price \$0\.00/i)).toBeInTheDocument();
     });
 
-    it('renders a named article without button semantics or a card tab stop', () => {
+    it('renders a named article as a single card tab stop without button semantics', () => {
         const { container } = render(<ProductCard product={mockProduct} />);
         const card = screen.getByRole('article', {
             name: 'Test Product by Test Creator, price $99.90',
         });
-        expect(card).not.toHaveAttribute('tabindex');
+        // H6-N2a 二次拍板：卡片整体进 Tab 序（焦点路径下 aria-label 即内容通道）
+        expect(card).toHaveAttribute('tabindex', '0');
         expect(screen.queryByRole('button', { name: /test product/i })).not.toBeInTheDocument();
         expect(container.querySelector('details, summary')).toBeNull();
     });
 
-    it('leaves untruncated fields out of Tab order without aria or tooltip DOM', async () => {
+    it('keeps untruncated fields out of Tab order while the card is a single tab stop', async () => {
         const user = userEvent.setup();
         render(
             <>
@@ -177,8 +178,14 @@ describe('ProductCard Component', () => {
         expectDisabled(titleTrigger);
         expectDisabled(creatorTrigger);
         expect(screen.queryByRole('tooltip')).toBeNull();
+        const card = screen.getByRole('article', {
+            name: 'Test Product by Test Creator, price $99.90',
+        });
 
+        // Tab 序：Before → 卡片（唯一卡级停留点，字段级仍不可聚焦）→ After
         screen.getByRole('button', { name: 'Before' }).focus();
+        await user.tab();
+        expect(card).toHaveFocus();
         await user.tab();
         expect(screen.getByRole('button', { name: 'After' })).toHaveFocus();
     });

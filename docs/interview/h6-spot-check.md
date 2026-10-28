@@ -109,6 +109,14 @@
   `docs/test_cases.md` E2E-AI-18 描述、组件头注释。
 - ~~待拍板：维持现状 vs title/creator 始终 tabindex=0~~（已由上条取代：
   维持聚焦现状 + 按钮名补全，title/creator 不加 tabindex）。
+- **二次拍板 + 修复（2026-10-28，G5.1 后）**：G5.1 撤掉加购按钮后，非截断卡片
+  在 Tab/焦点路径下完全消失（讲述人扫描模式仍可读，焦点模式真缺口）——
+  改判**卡片整体进 Tab 序**：`<article tabIndex=0>`（`ProductCard.tsx`），
+  aria-label 自含 title/creator/price 即焦点路径内容通道；补
+  `.card:focus-visible` 焦点环；截断 title/creator 仍各自作 tooltip 触发器
+  （嵌套焦点，不冲突）。锁定测试同步改判（原「无卡级停留点」断言翻转为
+  `tabindex="0"` + Tab 序 Before→卡→After）。用户原话方案存档：卡片聚焦承载
+  整体信息；按钮若复归，按钮名只需 title+动作。
 
 ## 修复计划（仲裁输入，返工一律经 MAF 新 G 立项，不在本文档直接施工）
 

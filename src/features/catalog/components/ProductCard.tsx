@@ -144,8 +144,13 @@ export function ProductCard({ product }: ProductCardProps) {
     const pricingLabel = PRICING_LABEL[product.pricingOption];
 
     return (
+        // H6-N2a 二次拍板（2026-10-28）：卡片整体进 Tab 序（tabIndex=0），
+        // aria-label 自含 title/creator/price——G5.1 撤按钮后焦点路径下卡片内容唯一通道；
+        // 截断 title/creator 仍各自挂 tabindex 作 tooltip 触发器（TruncatedText 内部逻辑）
         <article
             className={styles.card}
+            // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- H6-N2a 二次拍板（2026-10-28）：卡片即 Tab 阅读单元，aria-label 自含 title/creator/price；G5.1 撤按钮后焦点路径唯一内容通道
+            tabIndex={0}
             aria-label={`${product.title} by ${product.creator}, price ${
                 product.pricingOption === PricingOption.PAID
                     ? '$' + (product.price ?? 0).toFixed(2)
