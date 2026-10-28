@@ -9,8 +9,8 @@
 > 本稿按常见用法预填（🌍 外企/海外团队、🚀 创业/新业务团队、🏛️ 大厂/成熟团队）——
 > **若与存量节不一致，以授权时用户确认 / 存量节为准**。
 >
-> **数字口径 = README 门面口径**（G4.2 签核，8bed604）：根 137（20 文件 ~6s）/ server 72
-> （9 文件 ~2s）/ E2E mock 23（~26s）/ TTL 300s / HMAC 签名 / await_human。事实源
+> **数字口径 = README 门面口径**（G5.2 补丁窗口终版 2026-10-28 回填；G4.2 签核基线 8bed604）：根 144（19 文件 ~6s）/ server 81
+> （11 文件 ~2s）/ E2E mock 24（~26s）/ TTL 300s / HMAC 签名 / await_human。事实源
 > `docs/regression-index.md` §1，终版 design v0.5 §1.1 / §3 / §5。
 
 ## 插入位置说明
@@ -27,9 +27,9 @@
 
 | 数字/口径     | 本 wiki 草稿            | README（门面）                  | regression-index §1                 | 一致 |
 | ------------- | ----------------------- | ------------------------------- | ----------------------------------- | ---- |
-| 根单测        | 137（20 文件 ~6s）      | 137 cases / 20 files (~6s)      | 137 用例 / 20 文件 / ~6s            | ✅   |
-| server 单测   | 72（9 文件 ~2s）        | 72 cases / 9 files (~2s)        | 72 用例 / 9 文件 / ~2s              | ✅   |
-| E2E mock      | 23（~26s）              | 23 cases E2E-AI-01~24 (~26s)    | mock 23 条 / ~26s                   | ✅   |
+| 根单测        | 144（19 文件 ~6s）      | 144 cases / 19 files (~6s)      | 144 用例 / 19 文件 / ~6s            | ✅   |
+| server 单测   | 81（11 文件 ~2s）       | 81 cases / 11 files (~2s)       | 81 用例 / 11 文件 / ~2s             | ✅   |
+| E2E mock      | 24（~26s）              | 24 cases E2E-AI-01~25 (~26s)    | mock 24 条 / ~26s                   | ✅   |
 | 审批 TTL      | 300s                    | 300s TTL（双拦截）              | server 侧 APPROVAL_TTL_MS = 300_000 | ✅   |
 | 审批签名      | HMAC（APPROVAL_SECRET） | HMAC（签名防伪造）              | API-AI-06 伪造审批拦截 ✅           | ✅   |
 | HITL 挂起状态 | await_human             | pauses at `await_human`         | design §5 / G3.3 落地               | ✅   |
@@ -133,7 +133,7 @@ push `main` → GitHub Pages 静态部署 `dist/`（`workflow_dispatch` 可手�
 
 1. 本节**纯追加**，与既有「connect-store 目录架构」节是「存量底座 + AI 增量」关系：catalog /
    productApi / Zustand 底座描述不重复展开，只引用（见「特性」的目录底座一条）。
-2. 若既有节含测试/部署总表，本节给出的是 **AI 导购域的三层细分口径**（137/72/23），
+2. 若既有节含测试/部署总表，本节给出的是 **AI 导购域的三层细分口径**（144/81/24），
    与总表数字应一致；不一致时以 `docs/regression-index.md` §1 事实源为准并回改总表。
 3. 数字更新节奏：README（门面）→ `docs/regression-index.md` §1（事实源）→ 本节，三者漂移时
    以事实源为准。

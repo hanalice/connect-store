@@ -8,7 +8,7 @@ AI shopping assistant with human-in-the-loop (HITL) order approval on a performa
 2 Architecture 50s：前端 FSM 只投影；BFF 独握 Key；审批两层=SDK toolApproval+内存订单表。
 3 Tech 35s：React 19+TS7+Vite8+Zustand persist/Hono+ai@7/Vitest+RTL+Playwright。
 4 HITL 60s：对话→推荐→加购→下单(await_human)→审批→订单号；超 TTL 300s 惰性过期、伪造被 HMAC 拦；亮点=reject 理由回流。
-5 Testing 40s：根 137(20 文件~6s)/server 72(9 文件~2s)/E2E mock 23 条(~26s)；live 手动不进 CI。
+5 Testing 40s：根 144(19 文件~6s)/server 81(11 文件~2s)/E2E mock 24 条(~26s)；live 手动不进 CI。
 6 Deploy 30s：push main→Pages 静态；workflow_dispatch 手动；BFF 常驻无部署步骤。
 -->
 
@@ -63,9 +63,9 @@ Per [docs/regression-index.md](docs/regression-index.md) §1:
 
 | Layer       | Command                 | Size                         | Gate           |
 | ----------- | ----------------------- | ---------------------------- | -------------- |
-| Unit+integ. | `npm test`              | 20 files / 137 cases (~6s)   | pre-commit     |
-| BFF unit    | `cd server && npm test` | 9 files / 72 cases (~2s)     | pre-commit, CI |
-| E2E (mock)  | `npm run test:e2e`      | 23 cases E2E-AI-01~24 (~26s) | CI             |
+| Unit+integ. | `npm test`              | 19 files / 144 cases (~6s)   | pre-commit     |
+| BFF unit    | `cd server && npm test` | 11 files / 81 cases (~2s)    | pre-commit, CI |
+| E2E (mock)  | `npm run test:e2e`      | 24 cases E2E-AI-01~25 (~26s) | CI             |
 
 Live smoke `npm run test:e2e:live` (after `npm run dev:bff`) — E2E-AI-09, manual, not in CI. pre-commit: lint, format:check, both suites; CI adds build, BFF typecheck, mock E2E.
 

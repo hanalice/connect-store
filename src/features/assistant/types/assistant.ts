@@ -31,7 +31,11 @@ export interface ChatMessage {
  * POST /api/chat 的请求 part 形态（UIMessage part 的最小子集，服务端只校验 type 字符串）。
  * G3.3 裁决④：审批回放 part 形态以 ai@7 类型为准 —— UI 消息的工具 part 经
  * convertToModelMessages 转换：approval-responded part 生成 tool-approval-response
- * （+ deny 时追加 execution-denied 的 tool-result）；edit 新 toolCall 用 input-available part。
+ * （+ deny 时追加 execution-denied 的 tool-result）。
+ * edit 分支（G3.3b 起按 ADR D11 方案 B，docs/adr/connect-store-ai-assistant-adr.md）：
+ * edit = 修正意图作新用户回合经官方消息流重发（固定标记 [订单修改重发]），由模型重新
+ * 发起 placeOrder —— 前端不伪造 toolCall、不发送 input-available part；该变体仅保留为
+ * 协议声明面（PM 预拍板「改注释、保变体」，G5.2 落实 Q-D-01）。
  */
 export type ChatRequestPart =
     | { type: 'text'; text: string }

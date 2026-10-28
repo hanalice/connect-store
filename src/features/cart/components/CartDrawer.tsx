@@ -10,6 +10,7 @@ interface CartLineProps {
 /**
  * 单条购物车条目（G5.1 方向 D 只读投影）：缩略图 / 标题 / 单价 / 数量纯文本 / 小计。
  * 无步进 / 删除写控件——购物车由 AI 全权经手（single-writer），drawer 仅作效果视图。
+ * 数量裸文本补 aria-label 可访问名（D2，G5.2）：讲述人可读「数量 N」，非无上下文数字。
  */
 function CartLine({ item }: CartLineProps) {
     const { product, quantity } = item;
@@ -25,7 +26,11 @@ function CartLine({ item }: CartLineProps) {
                 <span className={styles.itemTitle}>{product.title}</span>
                 <span className={styles.unitPrice}>单价 ${product.price.toFixed(2)}</span>
             </div>
-            <span className={styles.quantity} data-testid="cart-quantity">
+            <span
+                className={styles.quantity}
+                data-testid="cart-quantity"
+                aria-label={`数量 ${quantity}`}
+            >
                 {quantity}
             </span>
             <span className={styles.subtotal} data-testid="cart-subtotal">

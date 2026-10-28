@@ -12,19 +12,19 @@
 
 ### 1.1 现状盘点（connect-store 已有资产，不重复造）
 
-| 资产            | 内容                                                                                                                                                                                   | 施工中如何使用                                                                              |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| catalog feature | 数字资产目录：无限滚动/搜索/筛选/排序/主题系统/CLS 优化/URL 状态同步                                                                                                                   | 作为 Agent 工具调用的**数据源与落点**（AI 帮用户筛目录）                                    |
-| productApi      | 真实远程 API（`closet-recruiting-api.azurewebsites.net/api/data`，**一次返回全量数组、无查询参数**）+ 重试/校验/AbortSignal                                                            | 保留；dev 环境经 Vite proxy 指向 BFF **同一份快照**（数据同源，避免 AI 推荐与目录页不一致） |
-| Zustand store   | useCatalogStore（分页/加载/取消）                                                                                                                                                      | 新增 useCartStore / useAssistantStore 沿用模式                                              |
-| 测试体系        | 三层 232 个自动化测试全绿（2026-10-27 终版）：根 Vitest + RTL 137（20 文件 ~6s）/ server Vitest 72（9 文件 ~2s）/ E2E mock 23（Playwright ~26s），事实源 `docs/regression-index.md` §1 | 新增测试沿用；状态机用转换表驱动测试                                                        |
-| 工程化          | ESLint/Prettier/Husky/Commitlint/CI(GitHub Actions)                                                                                                                                    | TS7 升级时同步适配                                                                          |
-| 设计系统        | SCSS Modules + CSS Variables（themes/variables/globals）                                                                                                                               | 新组件沿用 token，不引入 Tailwind（避免双体系）                                             |
-| Product 类型    | `id/creator/title/pricingOption/imagePath/price`（**无 description / tags**）                                                                                                          | 仅 title/creator 含文本 → **不做向量检索**的客观判据（见 §1.3）                             |
+| 资产            | 内容                                                                                                                                                                                    | 施工中如何使用                                                                              |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| catalog feature | 数字资产目录：无限滚动/搜索/筛选/排序/主题系统/CLS 优化/URL 状态同步                                                                                                                    | 作为 Agent 工具调用的**数据源与落点**（AI 帮用户筛目录）                                    |
+| productApi      | 真实远程 API（`closet-recruiting-api.azurewebsites.net/api/data`，**一次返回全量数组、无查询参数**）+ 重试/校验/AbortSignal                                                             | 保留；dev 环境经 Vite proxy 指向 BFF **同一份快照**（数据同源，避免 AI 推荐与目录页不一致） |
+| Zustand store   | useCatalogStore（分页/加载/取消）                                                                                                                                                       | 新增 useCartStore / useAssistantStore 沿用模式                                              |
+| 测试体系        | 三层 249 个自动化测试全绿（2026-10-28 终版）：根 Vitest + RTL 144（19 文件 ~6s）/ server Vitest 81（11 文件 ~2s）/ E2E mock 24（Playwright ~26s），事实源 `docs/regression-index.md` §1 | 新增测试沿用；状态机用转换表驱动测试                                                        |
+| 工程化          | ESLint/Prettier/Husky/Commitlint/CI(GitHub Actions)                                                                                                                                     | TS7 升级时同步适配                                                                          |
+| 设计系统        | SCSS Modules + CSS Variables（themes/variables/globals）                                                                                                                                | 新组件沿用 token，不引入 Tailwind（避免双体系）                                             |
+| Product 类型    | `id/creator/title/pricingOption/imagePath/price`（**无 description / tags**）                                                                                                           | 仅 title/creator 含文本 → **不做向量检索**的客观判据（见 §1.3）                             |
 
 > **实测基线（2026-10-16，本机）**：分支 `feat/ai-assistant`、工作区干净；`npm test` = 4 文件 / **27 测试全绿，2.77s**；远程接口一次性返回全量数组，筛选 / 排序 / 分页均在客户端完成（`catalogSelectors.ts`）。
 >
-> **终版实测（2026-10-27，G4.3 收敛口径）**：根 **137**（20 文件 ~6s）+ server **72**（9 文件 ~2s）+ E2E mock **23**（~26s）= **232 全绿零回归**；数字事实源 = `docs/regression-index.md` §1，门面口径 = `README.md`。
+> **终版实测（2026-10-28，G5.2 补丁窗口口径）**：根 **144**（19 文件 ~6s）+ server **81**（11 文件 ~2s）+ E2E mock **24**（~26s）= **249 全绿零回归**；数字事实源 = `docs/regression-index.md` §1，门面口径 = `README.md`。
 
 ### 1.2 目标
 
@@ -68,7 +68,8 @@
 │    ToolCallPanel（工具执行可视化）              │
 │    ApprovalCard（HITL 审批卡片）                │
 │    AgentStatusBadge（状态机投影）               │
-│  features/cart（购物车侧栏 + 下单入口）         │
+│  features/cart（购物车侧栏，只读效果视图）      │
+│   下单入口 = AI 对话 + 审批卡（N1，G5.1 方向 D）│
 │  features/catalog（现有，不改，作为工具落点）   │
 │                                                 │
 │  state: useAssistantStore（状态机+事件日志）    │
@@ -80,7 +81,7 @@
 │  POST /api/chat    → 工具回路 + 官方 UI 消息流    │
 │  POST /api/orders  → 审批状态/下单（BFF 订单表）  │
 │  tools: searchCatalog / getProductDetails         │
-│         addToCart / placeOrder(需审批)            │
+│         addToCart / clearCart / placeOrder(需审批)│
 │  approvals: toolApproval + 签名(防伪造)           │
 │  env: LLM_API_KEY / LLM_BASE_URL / APPROVAL_SECRET│
 └───────────────────────────────────────────────────┘
@@ -209,6 +210,8 @@ stateDiagram-v2
 
 **UI = 状态投影**：组件不自己"决定"状态，只消费 store 的状态渲染对应面板。`await_human` 是产品语义（等审批），不是 loading。（2026-10-27 终版注记：G3.3 已真实可达——`tool-approval-request` 帧落 store 审批态，ApprovalCard 按 store 投影渲染，approve / reject / edit 三出边全通；composer 在 `await_human` 锁定输入，G3.3 裁决⑥。）
 
+**表缺口登记（2026-10-28 G5.2 补登记）**：转换表未覆盖的运行时组合一律走「`sendMachineEvent` 查表静默跳过 + store 兜底」，不私改 TRANSITIONS 表。G3.3 已登记 5 处：streaming+TOOL_CALL / tool_calling+APPROVAL_REQUEST / tool_result+APPROVAL_REQUEST / thinking·tool_result+ERROR / busy 三态+STREAM_END（`docs/reports/G3.3.md` §三④）；第 6 处（G3.3b 新增）：**await_human + USER_SEND**（edit = 修正意图作新用户回合重发，ADR D11 方案 B）——查表静默跳过 + store 直设 thinking + EDIT_GAP_STATES 收尾兜底，单测双锁（登记 `docs/reports/G3.3b-qa.md` §三/§四.4）。
+
 ---
 
 ## 6. HITL 审批流设计
@@ -254,7 +257,7 @@ AI 生成 placeOrder 提议
 // 经官方消息流重发（固定标记 [订单修改重发] + 人读清单；历史剔除含未应答审批的 assistant
 // 消息，防 ai@7 本地校验复发），由模型重新发起 placeOrder；旧审批不再被回放引用，随 TTL
 // 过期（hang but safe 口径）。前端 machine：await_human 无 USER_SEND 出边，查表静默跳过 +
-// store 直设 thinking（表缺口登记 docs/reports/G3.3b.md §三）；四护栏 = prompt 硬约束 + zod
+// store 直设 thinking（表缺口登记 docs/reports/G3.3b-qa.md §三）；四护栏 = prompt 硬约束 + zod
 // input schema + 二次审批卡人工复核 + error 兜底（G3.4）。BFF 将旧 pending 单标记 rejected
 // （superseded by user edit）并签发新单（orders.ts 无 edited 态，四态锁定）。
 type ApprovalDecision =
@@ -284,7 +287,8 @@ src/features/assistant/
 │   ├── StreamingText.tsx      # 打字机渲染（流式分片）
 │   ├── ToolCallPanel.tsx      # 工具执行可视化（名称/参数/耗时）
 │   ├── ApprovalCard.tsx       # HITL 审批卡片（三按钮）
-│   └── AgentStatusBadge.tsx   # 状态机投影（idle/thinking/...）
+│   ├── AgentStatusBadge.tsx   # 状态机投影（idle/thinking/...）
+│   └── ClearCartConfirmCard.tsx # 清空购物车确认卡（registry：tool-clearCart，G5.1 方向 D）
 ├── state/
 │   ├── assistantMachine.ts    # 状态机（纯函数，转换表驱动测试）
 │   └── useAssistantStore.ts   # 状态 + 事件日志 + action
@@ -296,7 +300,7 @@ src/features/assistant/
     └── assistant.ts           # 消息/状态/工具调用类型
 
 src/features/cart/
-├── components/CartDrawer.tsx  # 购物车侧栏
+├── components/CartDrawer.tsx  # 购物车侧栏（G5.1 方向 D 只读投影：无人工写控件，AI 唯一写者）
 ├── store/useCartStore.ts      # 购物车状态（增删改/合计）
 └── types/cart.ts
 ```
@@ -369,6 +373,7 @@ server/
 │   ├── searchCatalog.ts     # 结构化查询：关键词(title/creator) + 免费/付费/仅查看 + 排序 + 价格区间(maxPrice/minPrice)
 │   ├── getProductDetails.ts
 │   ├── addToCart.ts
+│   ├── clearCart.ts         # 清空购物车（G5.1 方向 D 裁决①-b）：零入参回执语义，副作用「低（可逆）」自动执行、无 HITL
 │   └── placeOrder.ts        # 副作用工具：恒 'user-approval'；执行前校验订单表 approved 且未过 TTL（API-AI-01），金额按快照现价实时重计价
 ├── data/
 │   └── products.ts          # 数据层：冻结快照（远程 /api/data 一次性导出）+ **真实执行**筛选/排序/区间过滤（数据 mock、逻辑真跑）
@@ -435,7 +440,7 @@ server/
 - 补测试：registry 4 类用例 + 状态转换表 + mock LLM 确定性
 - 验证：`npm run build && npm test` 全绿 + 手工走查全旅程 + 3 分钟口头讲述彩排
 
-> ✅ **落地完成（G4.1–G4.3，2026-10-27）**。验证实测：三层 232 全绿（根 137 / server 72 / E2E mock 23，regression-index §1，G4.1 实测 2026-10-26）+ E2E 入 CI；README 5 分钟 story 签核（G4.2，8bed604）；本文档升版 v0.5 final 含 §3 mermaid 架构图（G4.3）。讲述彩排移交 H3 真人计时终判（G4.2 遗留裁决，不属本文件验证项）。
+> ✅ **落地完成（G4.1–G4.3，2026-10-27）**。验证实测：三层 249 全绿（根 144 / server 81 / E2E mock 24，regression-index §1；G4.1 签核时点 232 口径见 §12 变更记录，2026-10-28 G5.2 补丁窗口回填终版）+ E2E 入 CI；README 5 分钟 story 签核（G4.2，8bed604）；本文档升版 v0.5 final 含 §3 mermaid 架构图（G4.3）。讲述彩排移交 H3 真人计时终判（G4.2 遗留裁决，不属本文件验证项）。
 
 **预计投入**：Phase 0 半天 / Phase 1 1 天 / Phase 2 2 天（v0.3 为 2.5 天，剔除语义检索 0.5~1 天后取整并保留缓冲）/ Phase 3 2 天 / Phase 4 1 天 ≈ **6.5 天**（v0.3 为 7 天）
 **与学习计划合流**：Phase 0 = Day 3 任务；Phase 2 状态机 = Day 6 架构图实物版；Phase 3 = Day 2 补考 08-08 实弹；做完再考，考得动。
@@ -464,5 +469,6 @@ server/
 | 2026-10-27 | v0.5 (final)：G0–G4 全程执行期偏差收敛（只动实现描述，v0.4 技术决策原样保留，§4 / §6.2 / §11 / ADR 引用语句一字未改）——① §1.1 测试基线 27 → 终版 232（根 137 + server 72 + E2E mock 23，事实源 regression-index §1）；② §3 补全系统 mermaid 架构图（与 §5 状态机、§7 结构一致）；③ §5 mermaid 补 `STREAM_START` 两条边标注 + 事件枚举 11 → 12 + await_human 投影注释（G3.3 已真实可达）；④ §6.3 edit 分支按 G3.3 落地形态改写（不发审批响应、新 toolCall 重发，非原 union 的 `edits` 载荷）；⑤ §7 registry 输入签名 `(part: ToolPart)` → `{toolName, output, error?}`（G2.4 裁决⑦）+ 补 `tool-addToCart` key（G3.1 裁决④）+ 「气泡内退化为 1 列」改实测口径（视口驱动媒体查询，wrapper 恒定 2 列，G2.4 裁决⑥）+ `tool-placeOrder` 行按实现改写（执行回执 OrderResultCard；审批卡 ApprovalCard 内嵌订单摘要、不经 registry，G3.3 裁决②）；⑥ §8 orders.ts / approvals.ts / tools/placeOrder.ts 目录注释同步；⑦ §10 Phase 1–4 落地完成标注 + 各 Phase 验证标准实测结果 | ✅ PM 已签核（G4.3 §六） |
 | 2026-10-27 | v0.5 G4.4 补丁（签核后极小补丁纪律，不升版本号）：① §8 目录树补 `chat-prompt.ts` / `tools/index.ts` 两行；② §9「E2E（可选）」行对齐 CI 门禁现实（E2E = CI 门禁 + 本地三连跑硬指标，live 冒烟隔离非默认门禁）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | ✅ G4.4 补丁             |
 | 2026-10-27 | v0.5 G3.3b 补丁（签核后极小补丁纪律，不升版本号）：§6.3 edit 分支按 ADR D11 方案 B 改写 —— edit = 修正意图作新用户回合经官方消息流重发（不再伪造 toolCall part；H2 走查 live 100% MissingToolResultsError 根因修复）；四护栏 = prompt 硬约束（chat-prompt.ts）+ zod input schema（存量）+ 二次审批卡人工复核（存量）+ error 兜底（G3.4 存量）                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | ✅ G3.3b 补丁            |
+| 2026-10-28 | v0.5 G5.2 补丁（签核后极小补丁纪律，不升版本号，增补方式 = 裁决①-a 变更记录 + 正文最小修订）：① §1.1 / §10 测试数字终版 232 → **249**（根 144/19 文件 + server 81/11 文件 + E2E mock 24，事实源 regression-index §1，README 门面同步）；② §3 ASCII 购物车口径改「只读效果视图 + 下单入口 = AI 对话 + 审批卡」（N1 story，G5.1 方向 D 收口）+ 工具清单补 `clearCart`；③ §5 补登记第 6 处表缺口（await_human+USER_SEND，查表静默跳过 + store 兜底）+ §6.3 表缺口引用路径修正（G3.3b-qa）；④ §7 补 `ClearCartConfirmCard` + CartDrawer 只读化注记；⑤ §8 tools/ 补 `clearCart.ts`；⑥ `types/assistant.ts` 注释漂移修复（edit = D11 方案 B `[订单修改重发]` 新用户回合重发，input-available 变体保留为协议声明面）；⑦ D2：CartDrawer 只读数量补 aria-label 可访问名                                                                                                                                                                                                      | ⏳ 待 PM 签核（G5.2）    |
 
 ---

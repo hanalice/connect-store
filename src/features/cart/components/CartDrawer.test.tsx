@@ -47,10 +47,18 @@ describe('CartDrawer（G5.1 方向 D 只读投影）', () => {
         const freeRow = within(drawer).getByTestId('cart-item-p-free');
         expect(freeRow).toHaveTextContent('免费素材 Alpha');
         expect(within(freeRow).getByTestId('cart-quantity')).toHaveTextContent('2');
+        expect(within(freeRow).getByTestId('cart-quantity')).toHaveAttribute(
+            'aria-label',
+            '数量 2',
+        );
         expect(within(freeRow).getByTestId('cart-subtotal')).toHaveTextContent('$0.00');
         const paidRow = within(drawer).getByTestId('cart-item-p-paid');
         expect(paidRow).toHaveTextContent('付费模板 Beta');
         expect(within(paidRow).getByTestId('cart-quantity')).toHaveTextContent('1');
+        expect(within(paidRow).getByTestId('cart-quantity')).toHaveAttribute(
+            'aria-label',
+            '数量 1',
+        );
         expect(within(paidRow).getByTestId('cart-subtotal')).toHaveTextContent('$12.50');
         // 合计 = Σ price×qty = 0×2 + 12.5×1
         expect(within(drawer).getByTestId('cart-total')).toHaveTextContent('$12.50');
