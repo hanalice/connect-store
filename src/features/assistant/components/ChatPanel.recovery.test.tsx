@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { HashRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -87,5 +87,36 @@ describe('ChatPanel G3.4 失败恢复（裁决②③ + A11Y-05）', () => {
             });
         });
         expect(document.activeElement).toBe(screen.getByLabelText('消息输入框'));
+    });
+
+    it('A11Y-05 焦点圈禁：pending 期间 Tab/Shift+Tab 只在审批卡内循环，不逃逸到卡外', () => {
+        useAssistantStore.setState({
+            status: 'await_human',
+            messages: ORDER_MESSAGES,
+            approval: PENDING_APPROVAL,
+        });
+        renderPanel();
+
+        const host = screen.getByTestId('approval-card').parentElement!;
+        const focusables = () =>
+            Array.from(host.querySelectorAll<HTMLElement>('button:not(:disabled)'));
+        const start = document.activeElement as HTMLElement;
+        expect(start).toBe(screen.getByRole('button', { name: '确认下单' }));
+
+        // Tab 正向全循环一圈：每步焦点都在卡宿主内，整圈后回到起点（首/尾互跳）
+        for (let i = 0; i < focusables().length; i++) {
+            fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Tab' });
+            expect(host.contains(document.activeElement)).toBe(true);
+        }
+        expect(document.activeElement).toBe(start);
+
+        // Shift+Tab 反向：从起点后退一格 = 卡内最后一个按钮
+        fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Tab', shiftKey: true });
+        expect(document.activeElement).toBe(focusables()[focusables().length - 1]);
+
+        // 焦点在卡外（用户点了空白处）：Tab 被收回卡内首个按钮
+        document.body.focus();
+        fireEvent.keyDown(document.body, { key: 'Tab' });
+        expect(host.contains(document.activeElement)).toBe(true);
     });
 });

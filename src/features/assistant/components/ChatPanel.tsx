@@ -61,6 +61,42 @@ export function ChatPanel() {
         }
     }, [approval?.phase, inputLocked]);
 
+    // A11Y-05 焦点圈禁（H6 点 5 拍板补实现）：await_human 期间审批卡是唯一输入通道
+    // （G3.3 裁决⑤，composer 已锁定），Tab/Shift+Tab 约束在卡内可交互元素间循环（首/尾互跳），
+    // 不逃逸到卡外死胡同；焦点已在卡外时按方向收回卡内。phase 变化（决策/取消/过期）即解除，
+    // 归还 composer 由上一 effect 承接。E2E 不断言焦点，由单测锁 activeElement 不逃逸。
+    useEffect(() => {
+        if (approval?.phase !== 'pending') return;
+        const onKeydown = (event: KeyboardEvent) => {
+            if (event.key !== 'Tab') return;
+            const host = approvalHostRef.current;
+            if (!host) return;
+            const focusables = Array.from(
+                host.querySelectorAll<HTMLElement>(
+                    'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])',
+                ),
+            );
+            if (focusables.length === 0) return;
+            const currentIndex = focusables.indexOf(document.activeElement as HTMLElement);
+            event.preventDefault();
+            if (event.shiftKey) {
+                const prev =
+                    currentIndex <= 0
+                        ? focusables[focusables.length - 1]
+                        : focusables[currentIndex - 1];
+                prev.focus();
+            } else {
+                const next =
+                    currentIndex === -1 || currentIndex === focusables.length - 1
+                        ? focusables[0]
+                        : focusables[currentIndex + 1];
+                next.focus();
+            }
+        };
+        document.addEventListener('keydown', onKeydown);
+        return () => document.removeEventListener('keydown', onKeydown);
+    }, [approval?.phase]);
+
     // 审批卡条目解析：标题 / 现价取目录快照（裁决③ 展示值；最终以 server 实时计价为准）。
     // 审批到达时目录可能未加载（直开 assistant 页）——按需拉取一次，响应式重渲染。
     const products = useCatalogStore((state) => state.products);
