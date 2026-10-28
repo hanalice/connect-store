@@ -6,6 +6,7 @@ import { ProductCard } from '../../catalog/components/ProductCard';
 import { ProductGrid } from '../../catalog/components/ProductGrid';
 import type { Product } from '../../catalog/types/product';
 import { CartConfirmCard } from '../components/CartConfirmCard';
+import { ClearCartConfirmCard } from '../components/ClearCartConfirmCard';
 import { OrderResultCard } from '../components/OrderResultCard';
 import { PriceBreakdown } from '../components/PriceBreakdown';
 import { ToolError } from '../components/ToolError';
@@ -55,6 +56,11 @@ export const addToCartOutputSchema = z.object({
     productId: z.string(),
     quantity: z.number().int().positive(),
     product: productSchema,
+});
+
+/** clearCart 回执契约（镜像 server/tools/clearCart.ts：成功回执 { cleared: true }；error 回执先行分流）。 */
+export const clearCartOutputSchema = z.object({
+    cleared: z.literal(true),
 });
 
 /** placeOrder 执行回执契约（镜像 server PlaceOrderOutput 成功三字段；error 回执先行分流）。 */
@@ -118,6 +124,18 @@ export const UI_REGISTRY: Record<string, (call: ToolCallOutput) => ReactNode> = 
             return <ToolError title={INVALID_TITLE} message={INVALID_MESSAGE} />;
         }
         return <CartConfirmCard product={parsed.data.product} quantity={parsed.data.quantity} />;
+    },
+    // G5.1 裁决①-b（single-writer 收口）：清空确认卡——决策函数纯渲染零副作用，
+    // 清空只发生在 assistant store 的 tool-output-available 接线分支（clearCart 回执唯一通道）
+    'tool-clearCart': (call) => {
+        if (call.error !== undefined) return <ToolError message={call.error} />;
+        const businessError = outputErrorMessage(call.output);
+        if (businessError !== undefined) return <ToolError message={businessError} />;
+        const parsed = clearCartOutputSchema.safeParse(call.output);
+        if (!parsed.success) {
+            return <ToolError title={INVALID_TITLE} message={INVALID_MESSAGE} />;
+        }
+        return <ClearCartConfirmCard />;
     },
     // G3.3（裁决②）：placeOrder 输出分支 = 执行回执（审批交互卡由 ChatPanel 按 store 审批态渲染，
     // 不走 registry 决策；approval-request 不是 tool output）。分支保持纯渲染零副作用。

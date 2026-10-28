@@ -9,9 +9,6 @@ interface CartStore {
     /** drawer 开关属 UI 态（裁决③：不 persist，刷新后默认关闭）。 */
     isOpen: boolean;
     add: (product: Product, quantity: number) => void;
-    remove: (productId: string) => void;
-    /** 数量步进：1..N 正整数；减到 0 = remove。 */
-    setQuantity: (productId: string, quantity: number) => void;
     /**
      * G3.3c 裁决① edit 同步（editOrder 确认点调用；PM 修订窄读：作用域 = 被 edit 那张卡的
      * 原订单 orderItems）。cart 行在原订单内：draft 含该 productId → 数量直写对齐；原订单含
@@ -27,6 +24,7 @@ interface CartStore {
      * cartQty − orderQty，结果 ≤ 0 → 删行（clamp，不产生负数）；cart 没有的 productId 跳过。
      */
     deductExecutedItems: (items: { productId: string; quantity: number }[]) => void;
+    /** G5.1 裁决①-b：清空购物车——唯一消费方 = clearCart 工具回执接线（AI 路径），无人工写入口。 */
     clear: () => void;
     open: () => void;
     close: () => void;
@@ -58,24 +56,6 @@ export const useCartStore = create<CartStore>()(
                     }
                     return { items: [...state.items, { product, quantity }] };
                 });
-            },
-            remove(productId) {
-                set((state) => ({
-                    items: state.items.filter((item) => item.product.id !== productId),
-                }));
-            },
-            setQuantity(productId, quantity) {
-                if (quantity <= 0) {
-                    set((state) => ({
-                        items: state.items.filter((item) => item.product.id !== productId),
-                    }));
-                    return;
-                }
-                set((state) => ({
-                    items: state.items.map((item) =>
-                        item.product.id === productId ? { ...item, quantity } : item,
-                    ),
-                }));
             },
             alignWithOrderItems(orderItems, draftItems) {
                 const scopeIds = new Set(orderItems.map((item) => item.productId));

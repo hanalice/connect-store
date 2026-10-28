@@ -56,23 +56,14 @@ describe('useCartStore', () => {
         expect(itemCount()).toBe(2); // 条目数 = 合并后的条目行数
     });
 
-    it('UT-CART-02 Remove & Clear Cart：删除单项 / 步进减到 0 / 清空 → 条目与合计归零', () => {
+    it('UT-CART-02 Clear Cart（G5.1 裁决①-b 只读收口）：清空 → 条目与合计归零', () => {
         const store = useCartStore.getState();
         store.add(productPaid, 2);
         useCartStore.getState().add(productFree, 1);
+        expect(useCartStore.getState().totalPrice()).toBe(25);
 
-        // 删除单项：paid 移除后只剩 free，合计 = 0
-        useCartStore.getState().remove('p-paid');
-        expect(useCartStore.getState().items).toHaveLength(1);
-        expect(useCartStore.getState().totalPrice()).toBe(0);
-
-        // 步进减到 0 = remove（数量步进口径：1..N，减到 0 即移除）
-        useCartStore.getState().add(productPaid, 1);
-        useCartStore.getState().setQuantity('p-free', 0);
-        expect(useCartStore.getState().items.map((item) => item.product.id)).toEqual(['p-paid']);
-        expect(useCartStore.getState().totalPrice()).toBe(12.5);
-
-        // 清空：条目与合计归零
+        // 清空：条目与合计归零（clear 唯一消费方 = clearCart 工具回执接线，G5.1 裁决①-b；
+        // 单行 remove / 数量步进随 drawer 只读化整 action 移除——single-writer 收口）
         useCartStore.getState().clear();
         expect(useCartStore.getState().items).toHaveLength(0);
         expect(useCartStore.getState().itemCount()).toBe(0);

@@ -88,7 +88,7 @@ flowchart TB
 
 - **Streaming UI**：官方 UI 消息流（SSE）+ 打字机渲染；前端自研传输层消费协议，不发明协议。
 - **Tool loop**：`searchCatalog`（关键词/计价/排序/价格区间）/ `getProductDetails` /
-  `addToCart` / `placeOrder` 四工具，工具调用面板可视化（名称/参数/状态/耗时）。
+  `addToCart` / `clearCart` / `placeOrder` 五工具，工具调用面板可视化（名称/参数/状态/耗时）。
 - **Generative UI**：白名单注册表按官方 `tool-${toolName}` 分发——搜索结果复用目录页
   ProductGrid / ProductCard（视觉同源），未注册工具一律降级文本，绝不渲染任意组件。
 - **目录底座复用**：IntersectionObserver 无限滚动、URL 同步筛选、确定性排序；AI 导购与目录页
@@ -98,7 +98,8 @@ flowchart TB
 
 1. **Chat** — 用户口语提问，LLM 流式回复。
 2. **Recommend** — `searchCatalog` 渲染商品卡。
-3. **Add to cart** — `addToCart` 写入 persist 购物车（侧栏 CartDrawer）。
+3. **Add to cart** — `addToCart` 写入 persist 购物车（侧栏 CartDrawer）；`clearCart` 清空
+   （G5.1 single-writer 收口：AI 是购物车唯一写者，drawer 只读、目录页无加购按钮）。
 4. **Propose** — `placeOrder` 在 BFF 被 `toolApproval` 拦下，前端进入 `await_human`，
    ApprovalCard 展示条目 / 数量 / 合计。
 5. **Decide** — 三出边：**approve** → 回放审批 → 执行下单返回订单号；**reject**（附理由）→
@@ -112,9 +113,9 @@ flowchart TB
 
 | 层          | 命令                    | 规模                       | 门禁            |
 | ----------- | ----------------------- | -------------------------- | --------------- |
-| 根单测+集成 | `npm test`              | 137 用例 / 20 文件（~6s）  | pre-commit      |
-| BFF 单测    | `cd server && npm test` | 72 用例 / 9 文件（~2s）    | pre-commit + CI |
-| E2E（mock） | `npm run test:e2e`      | 23 条 E2E-AI-01~24（~26s） | CI              |
+| 根单测+集成 | `npm test`              | 144 用例 / 19 文件（~6s）  | pre-commit      |
+| BFF 单测    | `cd server && npm test` | 81 用例 / 11 文件（~2s）   | pre-commit + CI |
+| E2E（mock） | `npm run test:e2e`      | 24 条 E2E-AI-01~25（~26s） | CI              |
 
 live 冒烟 `npm run test:e2e:live`（E2E-AI-09）手动执行、不进 CI（需真实 LLM key）；
 状态机 20 边转换表驱动测试 + zod 运行时校验白名单 + mock LLM 确定性测试是质量工程三支点。

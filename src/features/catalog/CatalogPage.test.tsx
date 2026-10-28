@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, act, within } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { ProductSkeletonCard } from './components/ProductSkeletonCard';
 import { MemoryRouter } from 'react-router-dom';
 import { CatalogPage } from './CatalogPage';
@@ -125,16 +125,11 @@ describe('CatalogPage Integration', () => {
             </MemoryRouter>,
         );
 
-        // Skeleton wrappers mirror the real catalog item and expose no loading button.
-        const skeletons = screen.getAllByTestId('catalog-product-skeleton');
+        // 骨架：只读目录页直渲染存量 ProductSkeletonCard（G5.1 方向 D：CatalogProductCard 已下线，无按钮占位）
+        const skeletons = screen.getAllByTestId('product-skeleton');
         expect(skeletons.length).toBeGreaterThan(0);
-        for (const skeleton of skeletons) {
-            expect(within(skeleton).getByTestId('product-skeleton')).toBeInTheDocument();
-            expect(
-                within(skeleton).getByTestId('catalog-skeleton-button-placeholder'),
-            ).toHaveAttribute('aria-hidden', 'true');
-            expect(within(skeleton).queryByRole('button')).not.toBeInTheDocument();
-        }
+        // 加载态无加购按钮（目录页只读 browsing-only，G5.1）
+        expect(screen.queryByRole('button', { name: /加入购物车/ })).not.toBeInTheDocument();
 
         resolveApi(MOCK_PRODUCTS);
         expect(await screen.findByText('Yellow Coat')).toBeInTheDocument();

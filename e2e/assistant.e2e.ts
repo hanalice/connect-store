@@ -317,7 +317,7 @@ test('E2E-AI-16 加购旅程：addToCart 回执 → drawer 自动打开、条目
     await expect(page.getByLabel('消息输入框')).toBeEnabled();
 });
 
-test('E2E-AI-17 删改与持久化：步进加量 / 删除 → 合计联动 → reload → badge 与 drawer 内容恢复（UT-CART-02/03）', async ({
+test('E2E-AI-17 只读投影与持久化：加购回执 → drawer 只读校验数量 / 小计 / 合计 → reload → badge 与 drawer 内容恢复（G5.1 方向 D，映射 UT-CART-02/03）', async ({
     page,
 }) => {
     await send(page, '__e2e_cart__');
@@ -325,14 +325,16 @@ test('E2E-AI-17 删改与持久化：步进加量 / 删除 → 合计联动 → 
     const drawer = page.getByRole('dialog', { name: '购物车' });
     const row = drawer.getByTestId('cart-item-p-cart-1');
     await expect(row.getByTestId('cart-quantity')).toHaveText('1');
+    await expect(row.getByTestId('cart-subtotal')).toHaveText('$12.50');
+    await expect(drawer.getByTestId('cart-total')).toHaveText('$12.50');
 
-    // 步进加量：1 → 2，小计 / 合计联动（12.50 → 25.00）
-    await drawer.getByRole('button', { name: '增加 付费模板 Gamma' }).click();
-    await expect(row.getByTestId('cart-quantity')).toHaveText('2');
-    await expect(row.getByTestId('cart-subtotal')).toHaveText('$25.00');
-    await expect(drawer.getByTestId('cart-total')).toHaveText('$25.00');
+    // G5.1 只读收口：drawer 无步进 / 单行删除 / 清空写控件（single-writer，写动作只由 AI 回执触发）
+    await expect(drawer.getByRole('button', { name: '增加 付费模板 Gamma' })).toHaveCount(0);
+    await expect(drawer.getByRole('button', { name: '减少 付费模板 Gamma' })).toHaveCount(0);
+    await expect(drawer.getByRole('button', { name: '删除 付费模板 Gamma' })).toHaveCount(0);
+    await expect(drawer.getByRole('button', { name: '清空购物车' })).toHaveCount(0);
 
-    // 刷新：persist 恢复——badge 计数与 drawer 内容（数量 2 / 合计 25.00）都在
+    // 刷新：persist 恢复——badge 计数与 drawer 内容（数量 1 / 合计 12.50）都在
     // drawer 开关属 UI 态不持久化（裁决③），reload 后通过 badge 重开
     await page.reload();
     const badge = page.getByRole('button', { name: '购物车，1 件商品' });
@@ -340,17 +342,14 @@ test('E2E-AI-17 删改与持久化：步进加量 / 删除 → 合计联动 → 
     await badge.click();
     const restored = page.getByRole('dialog', { name: '购物车' });
     const restoredRow = restored.getByTestId('cart-item-p-cart-1');
-    await expect(restoredRow.getByTestId('cart-quantity')).toHaveText('2');
-    await expect(restoredRow.getByTestId('cart-subtotal')).toHaveText('$25.00');
-    await expect(restored.getByTestId('cart-total')).toHaveText('$25.00');
-
-    // 删除单项：合计归零、空态文案出现
-    await restored.getByRole('button', { name: '删除 付费模板 Gamma' }).click();
-    await expect(restored.getByTestId('cart-total')).toHaveText('$0.00');
-    await expect(restored.getByText('购物车是空的')).toBeVisible();
+    await expect(restoredRow.getByTestId('cart-quantity')).toHaveText('1');
+    await expect(restoredRow.getByTestId('cart-subtotal')).toHaveText('$12.50');
+    await expect(restored.getByTestId('cart-total')).toHaveText('$12.50');
+    // 只读口径 reload 后同样成立
+    await expect(restored.getByRole('button', { name: '清空购物车' })).toHaveCount(0);
 });
 
-test('E2E-AI-18 目录页加购入口：page.route 回放远程商品 → 加购 → badge 计数 → 开抽屉见条目 → reload 恢复（persist 跨页实证）', async ({
+test('E2E-AI-18 目录页只读浏览：page.route 回放远程商品 → 目录页无加购按钮、badge 初始为 0 → assistant 页加购后回目录页 badge 可见（persist 跨页实证，G5.1 方向 D）', async ({
     page,
 }) => {
     // catalog 数据来自远程绝对 URL，不经 vite proxy / mock-bff——对该 URL 确定性回放 2 件商品
@@ -388,44 +387,83 @@ test('E2E-AI-18 目录页加购入口：page.route 回放远程商品 → 加购
         page.getByRole('article', { name: '目录回放 B by Creator B, price $12.50' }),
     ).toBeVisible();
 
-    // 加购入口：wrapper 兄弟节点按钮，accessible name「加入购物车，{title}，{creator}，{price}」（H6-N2a 补全）
+    // G5.1 只读收口：目录页无任何加购按钮（浏览归人、交易归 AI，single-writer）
+    await expect(page.getByRole('button', { name: /加入购物车/ })).toHaveCount(0);
+    // badge 初始为 0，购物车仍可见（G3.1a 挂载保留）
     const badge0 = page.getByRole('button', { name: '购物车，0 件商品' });
     await expect(badge0).toBeVisible();
-    await page.getByRole('button', { name: '加入购物车，目录回放 A，Creator A，Free' }).click();
-    await page.getByRole('button', { name: '加入购物车，目录回放 B，Creator B，$12.50' }).click();
 
-    // badge 计数 +1/+1（条目行数口径：2 件不同商品 = 2）
-    const badge = page.getByRole('button', { name: '购物车，2 件商品' });
+    // persist 跨页角标同源链路（G3.1a）：assistant 页 AI 加购 → 回目录页 badge 可见。
+    // 注意：goto 仅变 hash = 同文档导航（SPA 不重建，zustand 存活）——
+    // 离页前先关 drawer，否则 overlay 盖住 header，badge click 被拦截。
+    await page.goto('/#/assistant');
+    await send(page, '__e2e_cart__');
+    await fetch(`${MOCK_BFF_ORIGIN}/__release?gate=cart`);
+    await expect(page.getByRole('dialog', { name: '购物车' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '购物车，1 件商品' })).toBeVisible();
+    await page.getByRole('button', { name: '关闭购物车' }).click();
+    await expect(page.getByRole('dialog', { name: '购物车' })).toBeHidden();
+
+    await page.goto('/#/');
+    await expect(
+        page.getByRole('article', { name: '目录回放 A by Creator A, price Free' }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: /加入购物车/ })).toHaveCount(0);
+    const badge = page.getByRole('button', { name: '购物车，1 件商品' });
     await expect(badge).toBeVisible();
-
-    // 开抽屉见条目：数量 / 小计 / 合计联动（Free 0 + 12.50）
+    // badge 重开 drawer：只读投影条目与合计（12.5×1）
     await badge.click();
     const drawer = page.getByRole('dialog', { name: '购物车' });
-    await expect(drawer).toBeVisible();
-    const rowA = drawer.getByTestId('cart-item-catalog-a');
-    await expect(rowA).toContainText('目录回放 A');
-    await expect(rowA.getByTestId('cart-quantity')).toHaveText('1');
-    await expect(rowA.getByTestId('cart-subtotal')).toHaveText('$0.00');
-    const rowB = drawer.getByTestId('cart-item-catalog-b');
-    await expect(rowB).toContainText('目录回放 B');
-    await expect(rowB.getByTestId('cart-subtotal')).toHaveText('$12.50');
+    await expect(drawer.getByTestId('cart-item-p-cart-1')).toBeVisible();
     await expect(drawer.getByTestId('cart-total')).toHaveText('$12.50');
+    await expect(drawer.getByRole('button', { name: '清空购物车' })).toHaveCount(0);
 
-    // reload：items 持久化恢复，drawer 开关属 UI 态不恢复（裁决③），badge 重开见内容
+    // reload：items 持久化恢复（persist 跨页同源链路的目录页侧实证）
     await page.reload();
-    await expect(page.getByRole('button', { name: '购物车，2 件商品' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '购物车，1 件商品' })).toBeVisible();
     await expect(page.getByRole('dialog', { name: '购物车' })).toHaveCount(0);
-    await page.getByRole('button', { name: '购物车，2 件商品' }).click();
-    const restored = page.getByRole('dialog', { name: '购物车' });
-    await expect(restored.getByTestId('cart-item-catalog-a')).toBeVisible();
-    await expect(restored.getByTestId('cart-item-catalog-b')).toBeVisible();
-    await expect(restored.getByTestId('cart-total')).toHaveText('$12.50');
+});
 
-    // persist 跨页实证：同一 localStorage 源，assistant 页角标同源恢复
-    await page.goto('/#/assistant');
-    await expect(page.getByRole('button', { name: '购物车，2 件商品' })).toBeVisible();
-    await page.goto('/#/');
-    await expect(page.getByRole('button', { name: '购物车，2 件商品' })).toBeVisible();
+test('E2E-AI-25 清空购物车：clearCart 回执（G5.1 裁决①-b）→ 购物车归零 + drawer 只读投影空态 → reload persist 恢复', async ({
+    page,
+}) => {
+    // 先加购 1 件（AI 主路径，与 E2E-AI-16 同模式）
+    await send(page, '__e2e_cart__');
+    await fetch(`${MOCK_BFF_ORIGIN}/__release?gate=cart`);
+    const drawer = page.getByRole('dialog', { name: '购物车' });
+    await expect(drawer.getByTestId('cart-item-p-cart-1')).toBeVisible();
+    await expect(drawer.getByTestId('cart-total')).toHaveText('$12.50');
+    // drawer 只读收口：清空无人工入口，唯一通道 = AI clearCart 回执
+    await expect(drawer.getByRole('button', { name: '清空购物车' })).toHaveCount(0);
+    await drawer.getByRole('button', { name: '关闭购物车' }).click();
+    await expect(drawer).toBeHidden();
+
+    // 用户要求清空 → 工具调用挂起在闸门 clear：回执未达，购物车保持原状（反向断言）
+    await send(page, '__e2e_clear_cart__');
+    await expect(page.getByRole('button', { name: '购物车，1 件商品' })).toBeVisible();
+    await fetch(`${MOCK_BFF_ORIGIN}/__release?gate=clear`);
+
+    // clearCart 回执应用：购物车清空 + drawer 自动打开（镜像 addToCart 接线），空态 + 合计 $0.00
+    const cleared = page.getByRole('dialog', { name: '购物车' });
+    await expect(cleared).toBeVisible();
+    await expect(cleared.getByText('购物车是空的')).toBeVisible();
+    await expect(cleared.getByTestId('cart-total')).toHaveText('$0.00');
+    // 气泡内清空确认卡（tool-clearCart registry 分支）
+    await expect(assistantBubble(page).getByTestId('clear-cart-confirm-card')).toContainText(
+        '✓ 已清空购物车',
+    );
+    await expect(assistantBubble(page)).toContainText('购物车已清空');
+
+    // 关闭 → badge 归零；reload → persist 恢复空车（清空结果同样持久化）
+    await cleared.getByRole('button', { name: '关闭购物车' }).click();
+    await expect(cleared).toBeHidden();
+    await expect(page.getByRole('button', { name: '购物车，0 件商品' })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole('button', { name: '购物车，0 件商品' })).toBeVisible();
+    await page.getByRole('button', { name: '购物车，0 件商品' }).click();
+    await expect(
+        page.getByRole('dialog', { name: '购物车' }).getByText('购物车是空的'),
+    ).toBeVisible();
 });
 
 /** G3.3 订单审批场景：目录快照路由（审批卡条目标题 / 现价解析源，p-order-1/2 与 mock 帧一致）。 */
@@ -588,7 +626,7 @@ test('E2E-AI-22 错误恢复：route.abort → error 横幅含重试按钮 + 降
     await expect(alert).toContainText('无法连接服务器');
     // 重试按钮 + 降级链接（裁决②③）
     await expect(page.getByRole('button', { name: '重试' })).toBeVisible();
-    await expect(page.getByRole('link', { name: '或回目录手动选购 →' })).toHaveAttribute(
+    await expect(page.getByRole('link', { name: '或回目录浏览商品 →' })).toHaveAttribute(
         'href',
         '#/',
     );
@@ -605,7 +643,7 @@ test('E2E-AI-22 错误恢复：route.abort → error 横幅含重试按钮 + 降
     await page.route('**/api/chat', (route) => route.abort());
     await send(page, '再次断网的问题');
     await expect(page.getByRole('alert')).toContainText('无法连接服务器');
-    await page.getByRole('link', { name: '或回目录手动选购 →' }).click();
+    await page.getByRole('link', { name: '或回目录浏览商品 →' }).click();
     await expect(page).toHaveURL(/#\/$/);
 });
 
@@ -620,7 +658,7 @@ test('E2E-AI-23 中断恢复：hang 场景点停止 → aborted 横幅无重试�
     await expect(page.getByText('已停止生成，可继续发送新消息')).toBeVisible();
     await expect(page.getByRole('alert')).toHaveCount(0);
     await expect(page.getByRole('button', { name: '重试' })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: '或回目录手动选购 →' })).toHaveAttribute(
+    await expect(page.getByRole('link', { name: '或回目录浏览商品 →' })).toHaveAttribute(
         'href',
         '#/',
     );

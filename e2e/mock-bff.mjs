@@ -19,6 +19,8 @@
  *   __e2e_tool_error__  工具失败：tool-input-available → tool-output-error → finish
  *   __e2e_cart__        加购流（G3.1）：tool-input-available(addToCart) → [闸门 cart] →
  *                       tool-output-available({ productId, quantity, product }) → 正文 → finish
+ *   __e2e_clear_cart__  清空购物车流（G5.1 裁决①-b）：tool-input-available(clearCart, {}) →
+ *                       [闸门 clear] → tool-output-available({ cleared: true }) → 正文 → finish
  *   __e2e_order__       订单审批流（G3.3，有状态分流；G3.3b 改识别点）：首请求 → 正文 +
  *                       tool-input-available(placeOrder) + tool-approval-request → 停驻 await_human
  *                       （流结束，hang but safe）；第二请求按消息体分流 —— approval-responded part
@@ -329,6 +331,32 @@ async function runCart(res) {
     finishStream(res);
 }
 
+/** 清空购物车流（G5.1 裁决①-b）：clearCart 回执语义，零入参（镜像 server/tools/clearCart.ts）。 */
+async function runClearCart(res) {
+    writeFrame(res, { type: 'start' });
+    writeFrame(res, { type: 'start-step' });
+    writeFrame(res, {
+        type: 'tool-input-available',
+        toolCallId: 'call-clear',
+        toolName: 'clearCart',
+        input: {},
+    });
+    // 闸门 clear：回执帧前购物车保持原状（清空未生效的反向断言点，E2E-AI-25）
+    await waitForRelease(res, 'clear');
+    if (res.writableEnded) return;
+    writeFrame(res, {
+        type: 'tool-output-available',
+        toolCallId: 'call-clear',
+        output: { cleared: true },
+    });
+    writeFrame(res, { type: 'text-start', id: 't1' });
+    await sleep(30);
+    writeFrame(res, { type: 'text-delta', id: 't1', delta: '购物车已清空' });
+    writeFrame(res, { type: 'text-end', id: 't1' });
+    writeFrame(res, { type: 'finish', finishReason: 'stop' });
+    finishStream(res);
+}
+
 /** 订单审批场景帧数据（G3.3）：商品与既有 __e2e_cart__ 夹具不重叠，E2E 路由目录快照后卡内可解析标题/现价。 */
 const ORDER_ITEMS = [
     { productId: 'p-order-1', quantity: 1 },
@@ -529,6 +557,7 @@ function pickScenario(text, raw) {
     if (text.includes('__e2e_tool_ui__')) return runToolUi;
     if (text.includes('__e2e_tool_unknown__')) return runToolUnknown;
     if (text.includes('__e2e_cart__')) return runCart;
+    if (text.includes('__e2e_clear_cart__')) return runClearCart;
     if (text.includes('__e2e_order_fail__')) return (res) => runOrderFailScenario(res, raw);
     // G3.3b（D11 方案 B）：edit 重发 = 新用户回合 —— 末条 user 消息只含「订单修改重发」清单标记
     //（原 __e2e_order__ 标记在历史首条），是订单场景的续流：直接分流进 runOrderScenario

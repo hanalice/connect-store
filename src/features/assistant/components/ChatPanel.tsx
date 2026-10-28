@@ -263,7 +263,7 @@ export function ChatPanel() {
                         重试
                     </button>
                     <Link className={styles.degradeLink} to="/">
-                        或回目录手动选购 →
+                        或回目录浏览商品 →
                     </Link>
                 </div>
             ) : null}
@@ -271,7 +271,7 @@ export function ChatPanel() {
                 <div className={styles.abortedBanner} role="status">
                     <span>已停止生成，可继续发送新消息</span>
                     <Link className={styles.degradeLink} to="/">
-                        或回目录手动选购 →
+                        或回目录浏览商品 →
                     </Link>
                 </div>
             ) : null}

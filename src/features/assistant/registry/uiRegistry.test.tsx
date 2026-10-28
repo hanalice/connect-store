@@ -194,4 +194,24 @@ describe('uiRegistry 白名单分发', () => {
         expect(screen.getByText('已拒绝渲染无效的工具输出')).toBeInTheDocument();
         expect(screen.queryByTestId('cart-confirm-card')).toBeNull();
     });
+
+    it('分支：tool-clearCart 成功回执 → ClearCartConfirmCard（G5.1 裁决①-b：已清空确认）', () => {
+        render(renderToolOutput({ toolName: 'clearCart', output: { cleared: true } }));
+        expect(screen.getByTestId('clear-cart-confirm-card')).toBeInTheDocument();
+        expect(screen.getByText('✓ 已清空购物车')).toBeInTheDocument();
+    });
+
+    it('分支：tool-clearCart 输出体内 error 回执 → ToolError 卡片（error 分流先于 schema）', () => {
+        render(renderToolOutput({ toolName: 'clearCart', output: { error: 'clear failed' } }));
+        expect(screen.getByText('工具执行失败')).toBeInTheDocument();
+        expect(screen.getByText('clear failed')).toBeInTheDocument();
+        expect(screen.queryByTestId('clear-cart-confirm-card')).toBeNull();
+    });
+
+    it('分支：tool-clearCart 畸形回执（cleared 非 true）→ 内联校验失败指示，不渲染坏数据', () => {
+        render(renderToolOutput({ toolName: 'clearCart', output: { cleared: false } }));
+        expect(screen.getByText('输出格式校验失败')).toBeInTheDocument();
+        expect(screen.getByText('已拒绝渲染无效的工具输出')).toBeInTheDocument();
+        expect(screen.queryByTestId('clear-cart-confirm-card')).toBeNull();
+    });
 });

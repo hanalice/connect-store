@@ -4,7 +4,7 @@ import type { UIMessageChunk } from 'ai';
 import { useCartStore } from '../../cart/store/useCartStore';
 import { useCatalogStore } from '../../catalog/store/useCatalogStore';
 import { buildApprovalReplayMessages, ChatApiError, streamChat } from '../services/chatApi';
-import { addToCartOutputSchema } from '../registry/uiRegistry';
+import { addToCartOutputSchema, clearCartOutputSchema } from '../registry/uiRegistry';
 import {
     APPROVAL_TTL_MS,
     isAssistantBusy,
@@ -317,6 +317,18 @@ export const useAssistantStore = create<AssistantStore>((set, get) => {
                 if (receipt.success) {
                     const cart = useCartStore.getState();
                     cart.add(receipt.data.product, receipt.data.quantity);
+                    cart.open();
+                }
+            }
+            // G5.1 裁决①-b 接线（single-writer 收口）：clearCart 成功回执
+            // （{ cleared: true }）→ 清空购物车 + drawer 自动打开——与 addToCart
+            // 「server 回执 + 前端应用」同模式；error / 畸形回执校验失败不清空。
+            // 这是购物车的唯一清空通道：drawer 只读化后无任何人工写入口。
+            if (call?.toolName === 'clearCart') {
+                const receipt = clearCartOutputSchema.safeParse(chunk.output);
+                if (receipt.success) {
+                    const cart = useCartStore.getState();
+                    cart.clear();
                     cart.open();
                 }
             }

@@ -3,11 +3,12 @@ import { Link, useSearchParams } from 'react-router-dom';
 
 import { CartBadge } from '../cart/components/CartBadge';
 import { CartDrawer } from '../cart/components/CartDrawer';
-import { CatalogProductCard, CatalogProductSkeletonCard } from './components/CatalogProductCard';
 import { EmptyState } from './components/EmptyState';
 import { ErrorState } from './components/ErrorState';
 import { FilterPanel } from './components/FilterPanel';
+import { ProductCard } from './components/ProductCard';
 import { ProductGrid } from './components/ProductGrid';
+import { ProductSkeletonCard } from './components/ProductSkeletonCard';
 import { SearchBar } from './components/SearchBar';
 import { SortSelect } from './components/SortSelect';
 import { ThemeToggle } from './components/ThemeToggle';
@@ -173,7 +174,7 @@ export function CatalogPage() {
                     {loading ? (
                         <ProductGrid>
                             {Array.from({ length: chunkSize }).map((_, index) => (
-                                <CatalogProductSkeletonCard key={`initial-skeleton-${index}`} />
+                                <ProductSkeletonCard key={`initial-skeleton-${index}`} />
                             ))}
                         </ProductGrid>
                     ) : null}
@@ -184,7 +185,7 @@ export function CatalogPage() {
                         <>
                             <ProductGrid>
                                 {visibleProducts.map((product) => (
-                                    <CatalogProductCard key={product.id} product={product} />
+                                    <ProductCard key={product.id} product={product} />
                                 ))}
                             </ProductGrid>
 
@@ -196,9 +197,7 @@ export function CatalogPage() {
                                             processedProducts.length - visibleCount,
                                         ),
                                     }).map((_, index) => (
-                                        <CatalogProductSkeletonCard
-                                            key={`append-skeleton-${index}`}
-                                        />
+                                        <ProductSkeletonCard key={`append-skeleton-${index}`} />
                                     ))}
                                 </ProductGrid>
                             ) : null}

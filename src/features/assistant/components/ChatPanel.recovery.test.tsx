@@ -38,22 +38,22 @@ describe('ChatPanel G3.4 失败恢复（裁决②③ + A11Y-05）', () => {
         useAssistantStore.getState().reset();
     });
 
-    it('降级提示：error / aborted 双横幅均附「或回目录手动选购 →」链接（href #/ 目录页）', () => {
+    it('降级提示：error / aborted 双横幅均附「或回目录浏览商品 →」链接（href #/ 目录页）', () => {
         useAssistantStore.setState({
             status: 'error',
             error: '无法连接服务器，请检查网络后重试',
         });
         renderPanel();
-        const link = screen.getByRole('link', { name: '或回目录手动选购 →' });
+        const link = screen.getByRole('link', { name: '或回目录浏览商品 →' });
         expect(link).toHaveAttribute('href', '#/');
         expect(screen.getByRole('alert')).toHaveTextContent('无法连接服务器');
 
-        // aborted 横幅同样挂降级链接（裁决③：仅这两处，不扩散）
+        // aborted 横幅同样挂降级链接（裁决③：仅这两处，不扩散；G5.1：降级 = 浏览，不承诺手动加购）
         act(() => {
             useAssistantStore.setState({ status: 'aborted', error: null });
         });
         expect(screen.getByText('已停止生成，可继续发送新消息')).toBeInTheDocument();
-        const abortedLink = screen.getByRole('link', { name: '或回目录手动选购 →' });
+        const abortedLink = screen.getByRole('link', { name: '或回目录浏览商品 →' });
         expect(abortedLink).toHaveAttribute('href', '#/');
     });
 

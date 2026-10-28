@@ -27,3 +27,16 @@ describe('G3.3b 裁决②：edit 重发 prompt 硬约束（ADR D11 方案 B 四�
         expect(CHAT_SYSTEM_PROMPT).toContain('不要说「等待确认」');
     });
 });
+
+describe('G5.1 购物车 single-writer 条款（方向 D，裁决①-b）', () => {
+    it('clearCart 工具条款在位：被用户要求清空时直接调用 + 调用后告知已清空', () => {
+        expect(CHAT_SYSTEM_PROMPT).toContain(
+            'clearCart：低副作用（可逆），被用户要求清空购物车时直接调用，不需要再向用户确认；调用后告知用户购物车已清空',
+        );
+    });
+
+    it('single-writer 总纲在位：购物车由 AI 全权经手，不引导用户去界面手动操作', () => {
+        expect(CHAT_SYSTEM_PROMPT).toContain('购物车由你全权经手');
+        expect(CHAT_SYSTEM_PROMPT).toContain('不要引导用户去界面手动操作');
+    });
+});

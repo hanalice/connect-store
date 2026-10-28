@@ -3,6 +3,7 @@
 // 约定：注册表内所有工具的 inputSchema 均为 Zod schema，execute 同步返回 JSON 可序列化结果。
 
 import { addToCartTool } from './addToCart.js';
+import { clearCartTool } from './clearCart.js';
 import { getProductDetailsTool } from './getProductDetails.js';
 import { placeOrderTool } from './placeOrder.js';
 import { searchCatalogTool } from './searchCatalog.js';
@@ -11,6 +12,7 @@ export const toolRegistry = {
     searchCatalog: searchCatalogTool,
     getProductDetails: getProductDetailsTool,
     addToCart: addToCartTool,
+    clearCart: clearCartTool,
     placeOrder: placeOrderTool,
 } as const;
 

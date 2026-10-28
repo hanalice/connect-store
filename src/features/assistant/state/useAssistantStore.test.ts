@@ -99,6 +99,18 @@ const ADD_TO_CART_OUTPUT = {
     toolCallId: 'call-cart',
     output: { productId: 'p-cart-1', quantity: 1, product: CART_PRODUCT },
 } as UIMessageChunk;
+/** G5.1 裁决①-b 接线测试用的 clearCart 输入帧 / 成功回执帧（镜像 server 契约 { cleared: true }）。 */
+const CLEAR_CART_INPUT = {
+    type: 'tool-input-available',
+    toolCallId: 'call-clear',
+    toolName: 'clearCart',
+    input: {},
+} as UIMessageChunk;
+const CLEAR_CART_OUTPUT = {
+    type: 'tool-output-available',
+    toolCallId: 'call-clear',
+    output: { cleared: true },
+} as UIMessageChunk;
 const TEXT_TAIL = [
     { type: 'text-start', id: 't1' },
     { type: 'text-delta', id: 't1', delta: '回复' },
@@ -544,6 +556,53 @@ describe('useAssistantStore', () => {
         await useAssistantStore.getState().sendMessage('找免费素材');
 
         expect(useCartStore.getState().items).toHaveLength(0);
+        expect(useCartStore.getState().isOpen).toBe(false);
+    });
+
+    it('G5.1 clearCart 接线（裁决①-b）：成功回执 → 购物车清空 + drawer 自动打开（唯一清空通道）', async () => {
+        // 预置条目（等价于此前 addToCart 回执已写入）：
+        // CART_PRODUCT 是 as const 夹具，Product 数字枚举兼容字面量 0（pricingOption: PricingOption）
+        useCartStore.getState().add({ ...CART_PRODUCT }, 2);
+        useCartStore.getState().close();
+
+        streamChunks([CLEAR_CART_INPUT, CLEAR_CART_OUTPUT, ...TEXT_TAIL]);
+        await useAssistantStore.getState().sendMessage('清空购物车');
+
+        const cart = useCartStore.getState();
+        expect(cart.items).toHaveLength(0); // 清空生效
+        expect(cart.itemCount()).toBe(0);
+        expect(cart.totalPrice()).toBe(0);
+        expect(cart.isOpen).toBe(true); // 镜像 addToCart：回执成功 drawer 自动打开（投影确认）
+    });
+
+    it('G5.1 clearCart 接线：error 回执 / 畸形回执（cleared 非 true）→ 不清空、不打开 drawer', async () => {
+        useCartStore.getState().add({ ...CART_PRODUCT }, 1);
+        useCartStore.getState().close();
+
+        streamChunks([
+            CLEAR_CART_INPUT,
+            {
+                type: 'tool-output-available',
+                toolCallId: 'call-clear',
+                output: { error: 'clear failed' },
+            } as UIMessageChunk,
+            ...TEXT_TAIL,
+        ]);
+        await useAssistantStore.getState().sendMessage('清空购物车（error 变体）');
+        expect(useCartStore.getState().items).toHaveLength(1); // 未清空
+        expect(useCartStore.getState().isOpen).toBe(false);
+
+        streamChunks([
+            CLEAR_CART_INPUT,
+            {
+                type: 'tool-output-available',
+                toolCallId: 'call-clear',
+                output: { cleared: false },
+            } as UIMessageChunk,
+            ...TEXT_TAIL,
+        ]);
+        await useAssistantStore.getState().sendMessage('清空购物车（畸形变体）');
+        expect(useCartStore.getState().items).toHaveLength(1); // zod 校验失败不写
         expect(useCartStore.getState().isOpen).toBe(false);
     });
 });

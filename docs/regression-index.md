@@ -15,9 +15,9 @@
 
 | 场景             | 命令                                            | 覆盖                       | 耗时量级 | 门禁                                     |
 | ---------------- | ----------------------------------------------- | -------------------------- | -------- | ---------------------------------------- |
-| 单测 + 集成全量  | `npm test`                                      | vitest 20 文件 / 137 用例  | ~6s      | pre-commit ✅                            |
-| server 单测全量  | `cd server && npm test`                         | vitest 9 文件 / 72 用例    | ~2s      | pre-commit ✅ + CI（裁决④，G4.1 四件套） |
-| E2E 全量（mock） | `npm run test:e2e`                              | E2E-AI-01~24（mock 23 条） | ~26s     | CI ✅ + 本地（裁决②④，G4.1 落地）        |
+| 单测 + 集成全量  | `npm test`                                      | vitest 19 文件 / 144 用例  | ~6s      | pre-commit ✅                            |
+| server 单测全量  | `cd server && npm test`                         | vitest 11 文件 / 81 用例   | ~2s      | pre-commit ✅ + CI（裁决④，G4.1 四件套） |
+| E2E 全量（mock） | `npm run test:e2e`                              | E2E-AI-01~25（mock 24 条） | ~26s     | CI ✅ + 本地（裁决②④，G4.1 落地）        |
 | live 冒烟        | `npm run test:e2e:live`（先 `npm run dev:bff`） | E2E-AI-09                  | ~3s      | 手动，不进 CI（G4.1 容错改造后复跑 ✅）  |
 | E2E 单条定位     | `npx playwright test -g "E2E-AI-05"`            | 按编号 grep 标题           | —        | —                                        |
 | vitest 单条定位  | `npx vitest run -t "INT-AI-02"`                 | 按编号 grep 标题           | —        | —                                        |
@@ -58,22 +58,24 @@
 | （数据层过滤）        | ✅   | `server/data/products.test.ts`（15 条）                                                                                      | 标题未嵌编号，G4.1 统一 |
 | （searchCatalog）     | ✅   | `server/tools/searchCatalog.test.ts`（6 条）                                                                                 | 标题未嵌编号，G4.1 统一 |
 | （addToCart）         | ✅   | `server/tools/addToCart.test.ts`（5 条）                                                                                     | 标题未嵌编号，G4.1 统一 |
+| （clearCart）         | ✅   | `server/tools/clearCart.test.ts`（3 条）+ `chat-prompt.test.ts` 购物车条款（2 条）                                           | G5.1 落地               |
 | （getProductDetails） | ✅   | `server/tools/getProductDetails.test.ts`（3 条）                                                                             | 标题未嵌编号，G4.1 统一 |
 | （审批·TTL 域）       | ✅   | `approvals.test.ts`（11）+ `orders.test.ts`（12）+ `tools/placeOrder.test.ts`（9）+ `chat-approval.integration.test.ts`（4） | 标题未嵌编号，G4.1 统一 |
 | （env 校验）          | ✅   | `server/env.test.ts`（7 条）                                                                                                 | G3.2 引入，G4.1 补登    |
 
 ### 2.2 E2E（Playwright，`npm run test:e2e`）
 
-| ID             | 状态 | 位置                                                                                                     | 门禁                                                      |
-| -------------- | ---- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| E2E-AI-01 ~ 08 | ✅   | `e2e/assistant.e2e.ts`（标题嵌编号，`-g` 可单条定位）                                                    | CI ✅（G4.1 落地，裁决②根因修复后）                       |
-| E2E-AI-10 ~ 13 | ✅   | `e2e/assistant.e2e.ts`（G2.3 工具调用场景，命名闸门中间态断言）                                          | CI ✅（G4.1 落地）                                        |
-| E2E-AI-14 ~ 15 | ✅   | `e2e/assistant.e2e.ts`（G2.4 Generative UI 场景；14 映射 INT-AI-04 / 裁决⑥，15 映射 UT-REG-02 E2E 侧）   | CI ✅（G4.1 落地）；报告 `docs/reports/G2.4.md` §二 #3    |
-| E2E-AI-16 ~ 17 | ✅   | `e2e/assistant.e2e.ts`（G3.1 `__e2e_cart__` 加购/持久化场景；16 映射 UT-CART-01，17 映射 UT-CART-02/03） | CI ✅（G4.1 落地）；报告 `docs/reports/G3.1.md` §二 #3    |
-| E2E-AI-18      | ✅   | `e2e/assistant.e2e.ts`（G3.1a 目录页加购入口，page.route 回放远程商品快照）                              | CI ✅（G4.1 落地）；报告 `docs/reports/G3.1a.md` §二      |
-| E2E-AI-19 ~ 21 | ✅   | `e2e/assistant.e2e.ts`（G3.3 `__e2e_order__` 有状态审批场景：19 映射 INT-HITL-01 / 20 → 02 / 21 → 03）   | CI ✅（G4.1 落地）；报告 `docs/reports/G3.3.md` §二 #3~#4 |
-| E2E-AI-22 ~ 24 | ✅   | `e2e/assistant.e2e.ts`（G3.4 失败恢复场景：22 重试 / 23 aborted / 24 审批中断保位）                      | CI ✅（G4.1 落地）；报告 `docs/reports/G3.4.md` §二 #6    |
-| E2E-AI-09      | ✅   | `e2e/live-smoke.e2e.ts`（`@live` 标签隔离；G4.1 裁决③容错改造后带 BFF live 复跑通过 2026-10-26）         | **手动**，不进 CI                                         |
+| ID             | 状态 | 位置                                                                                                                                  | 门禁                                                      |
+| -------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| E2E-AI-01 ~ 08 | ✅   | `e2e/assistant.e2e.ts`（标题嵌编号，`-g` 可单条定位）                                                                                 | CI ✅（G4.1 落地，裁决②根因修复后）                       |
+| E2E-AI-10 ~ 13 | ✅   | `e2e/assistant.e2e.ts`（G2.3 工具调用场景，命名闸门中间态断言）                                                                       | CI ✅（G4.1 落地）                                        |
+| E2E-AI-14 ~ 15 | ✅   | `e2e/assistant.e2e.ts`（G2.4 Generative UI 场景；14 映射 INT-AI-04 / 裁决⑥，15 映射 UT-REG-02 E2E 侧）                                | CI ✅（G4.1 落地）；报告 `docs/reports/G2.4.md` §二 #3    |
+| E2E-AI-16 ~ 17 | ✅   | `e2e/assistant.e2e.ts`（G3.1 `__e2e_cart__` 加购/持久化场景，G5.1 起 17 改造为只读投影版；16 映射 UT-CART-01，17 映射 UT-CART-02/03） | CI ✅（G4.1 落地）；报告 `docs/reports/G3.1.md` §二 #3    |
+| E2E-AI-18      | ✅   | `e2e/assistant.e2e.ts`（G5.1 改造：目录页只读浏览——无加购按钮 + persist 跨页角标同源，page.route 回放远程商品快照）                   | CI ✅（G4.1 落地）；报告 `docs/reports/G3.1a.md` §二      |
+| E2E-AI-19 ~ 21 | ✅   | `e2e/assistant.e2e.ts`（G3.3 `__e2e_order__` 有状态审批场景：19 映射 INT-HITL-01 / 20 → 02 / 21 → 03）                                | CI ✅（G4.1 落地）；报告 `docs/reports/G3.3.md` §二 #3~#4 |
+| E2E-AI-22 ~ 24 | ✅   | `e2e/assistant.e2e.ts`（G3.4 失败恢复场景：22 重试 / 23 aborted / 24 审批中断保位；G5.1 起降级链接文案改「或回目录浏览商品 →」）      | CI ✅（G4.1 落地）；报告 `docs/reports/G3.4.md` §二 #6    |
+| E2E-AI-25      | ✅   | `e2e/assistant.e2e.ts`（G5.1 `__e2e_clear_cart__` 清空场景：clearCart 回执 → 归零 + persist，裁决①-b）                                | G5.1 落地                                                 |
+| E2E-AI-09      | ✅   | `e2e/live-smoke.e2e.ts`（`@live` 标签隔离；G4.1 裁决③容错改造后带 BFF live 复跑通过 2026-10-26）                                      | **手动**，不进 CI                                         |
 
 ### 2.3 BFF / 安全契约（curl 验收，QA 每 G 执行）
 
