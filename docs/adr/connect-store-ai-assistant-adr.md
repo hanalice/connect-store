@@ -127,7 +127,7 @@ connect-store/
 
 **撤销理由（2026-10-16，三条）**：
 
-1. **职责边界反转**：2026-10-13 已收敛职责 —— 检索 / 编排层证据由 **newtalk** 承担，本 Showcase 只承担 AI 交互层证据（Generative UI / 状态机投影 / HITL）+ React 底层深度。在 connect-store 再做一套检索 = 重复叙事，削弱而非加强 Showcase。
+1. **职责边界反转**：2026-10-13 已收敛职责 —— 检索 / 编排层证据由 **其他项目** 承担，本 Showcase 只承担 AI 交互层证据（Generative UI / 状态机投影 / HITL）+ React 底层深度。在 connect-store 再做一套检索 = 重复叙事，削弱而非加强 Showcase。
 2. **输入客观缺失**：实测 `Product` 类型仅 `id/creator/title/pricingOption/imagePath/price`，**无 `description` / `tags`**。语义检索连输入字段都没有，须先造 mock 描述才能跑 —— 属"为做而做"，与"设计忌过度工程"相悖。
 3. **规模不匹配**：商品为百级、接口一次返回全量数组；结构化过滤（关键词 + 计价方式 + 价格区间 + 排序）已足够覆盖导购需求。
 

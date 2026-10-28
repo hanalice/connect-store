@@ -23,7 +23,7 @@
 
 ## 施工顺序与排期（2026-10-13 定）
 
-> **决策依据**：用户确认「React 深度 + AI 能力两者都要」，G0–G4 全量做。本项目职责 = **React 底层深度 + AI 交互层证据**（Generative UI / 状态机投影 / HITL）；**不**承担检索 / 编排层证据（RAG、混合检索、多 Agent 编排由 newtalk 承担，避免重复叙事）。见 `~/hermes-agent/career-path/strategy-note.md` §3 / §4②。
+> **决策依据**：用户确认「React 深度 + AI 能力两者都要」，G0–G4 全量做。本项目职责 = **React 底层深度 + AI 交互层证据**（Generative UI / 状态机投影 / HITL）；**不**承担检索 / 编排层证据（RAG、混合检索、多 Agent 编排由 其他项目 承担，避免重复叙事）。见 `~/hermes-agent/career-path/strategy-note.md` §3 / §4②。
 >
 > **硬约束（优先级高于本表）**：求职 **P0 = 三项目答辩深度提炼 + 追问预案**，直接决定面试通过率。**P0 未收口则 G1 顺延**，不允许用本项目的工程时间置换 P0 时段。
 
