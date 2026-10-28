@@ -590,7 +590,9 @@ test('E2E-AI-21 edit 重新发起：卡内改数量 / 移除条目 → edit 用�
     await card.getByRole('button', { name: '确认修改并重新发起' }).click();
 
     // 旧卡被替换为失效提示（<p>，非卡），新卡（新审批单号 + 修改后 items）渲染
-    await expect(page.getByText('已修改并重新发起', { exact: true })).toBeVisible();
+    // 断言锚定失效提示 testid——稳态下旧卡 decided span 与 <p> 同文共存，
+    // getByText 双元素 strict 冲突为 G3.3b 引入的潜伏 flake（CI 两次命中）
+    await expect(page.getByTestId('approval-superseded-note')).toHaveText('已修改并重新发起');
     const newCard = page.getByTestId('approval-card');
     await expect(newCard).toContainText('审批单号 appr-e2e-2');
     await expect(newCard).toContainText('音效包 Beta');

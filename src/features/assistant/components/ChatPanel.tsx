@@ -209,7 +209,10 @@ export function ChatPanel() {
                                             ))}
                                         {approvalSuperseded !== null &&
                                         message.id === approvalSuperseded.messageId ? (
-                                            <p className={styles.supersededNote}>
+                                            <p
+                                                className={styles.supersededNote}
+                                                data-testid="approval-superseded-note"
+                                            >
                                                 {approvalSuperseded.note}
                                             </p>
                                         ) : null}
