@@ -388,11 +388,11 @@ test('E2E-AI-18 目录页加购入口：page.route 回放远程商品 → 加购
         page.getByRole('article', { name: '目录回放 B by Creator B, price $12.50' }),
     ).toBeVisible();
 
-    // 加购入口：wrapper 兄弟节点按钮，accessible name「加入购物车，{title}」
+    // 加购入口：wrapper 兄弟节点按钮，accessible name「加入购物车，{title}，{creator}，{price}」（H6-N2a 补全）
     const badge0 = page.getByRole('button', { name: '购物车，0 件商品' });
     await expect(badge0).toBeVisible();
-    await page.getByRole('button', { name: '加入购物车，目录回放 A' }).click();
-    await page.getByRole('button', { name: '加入购物车，目录回放 B' }).click();
+    await page.getByRole('button', { name: '加入购物车，目录回放 A，Creator A，Free' }).click();
+    await page.getByRole('button', { name: '加入购物车，目录回放 B，Creator B，$12.50' }).click();
 
     // badge 计数 +1/+1（条目行数口径：2 件不同商品 = 2）
     const badge = page.getByRole('button', { name: '购物车，2 件商品' });

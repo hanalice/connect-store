@@ -23,7 +23,9 @@ describe('CatalogProductCard（G3.1a 目录页加购入口）', () => {
     it('点加购按钮 → useCartStore 写入条目，重复点击按 add 语义合并数量', () => {
         render(<CatalogProductCard product={PRODUCT} />);
 
-        fireEvent.click(screen.getByRole('button', { name: '加入购物车，Yellow Coat' }));
+        fireEvent.click(
+            screen.getByRole('button', { name: '加入购物车，Yellow Coat，Adam，$50.00' }),
+        );
 
         const { items, itemCount } = useCartStore.getState();
         expect(items).toHaveLength(1);
@@ -31,7 +33,9 @@ describe('CatalogProductCard（G3.1a 目录页加购入口）', () => {
         expect(itemCount()).toBe(1);
 
         // 重复加购同商品 = 数量合并，不新增条目行（沿用 useCartStore.add 语义）
-        fireEvent.click(screen.getByRole('button', { name: '加入购物车，Yellow Coat' }));
+        fireEvent.click(
+            screen.getByRole('button', { name: '加入购物车，Yellow Coat，Adam，$50.00' }),
+        );
         expect(useCartStore.getState().items).toHaveLength(1);
         expect(useCartStore.getState().items[0].quantity).toBe(2);
         expect(useCartStore.getState().itemCount()).toBe(1);
@@ -43,7 +47,9 @@ describe('CatalogProductCard（G3.1a 目录页加购入口）', () => {
         const card = screen.getByRole('article', {
             name: 'Yellow Coat by Adam, price $50.00',
         });
-        const addButton = screen.getByRole('button', { name: '加入购物车，Yellow Coat' });
+        const addButton = screen.getByRole('button', {
+            name: '加入购物车，Yellow Coat，Adam，$50.00',
+        });
 
         // article 与加购按钮是同一 wrapper 下的兄弟节点
         expect(addButton).not.toBe(card);
