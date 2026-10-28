@@ -65,7 +65,7 @@ flowchart TB
 
     subgraph BFF["BFF（Hono · AI SDK v7）"]
         CHAT["POST /api/chat · streamText 工具回路"]
-        TREG[["4 工具：searchCatalog / getProductDetails /<br/>addToCart / placeOrder"]]
+        TREG[["5 工具：searchCatalog / getProductDetails /<br/>addToCart / clearCart / placeOrder"]]
         TAP["toolApproval 两层：SDK 协议 + HMAC 签名"]
         ORD[("订单表：pending / approved /<br/>rejected / expired · TTL 300s")]
     end
