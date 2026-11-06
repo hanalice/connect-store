@@ -1,0 +1,418 @@
+[
+  {
+    "id": "content-001",
+    "creator": "Adam",
+    "title": "Yellow green coat",
+    "pricingOption": 0,
+    "imagePath": "images/thumbnail_1.jpg",
+    "price": 50
+  },
+  {
+    "id": "content-002",
+    "creator": "Benny",
+    "title": "Brown Anorak",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_2.jpg",
+    "price": 30
+  },
+  {
+    "id": "content-003",
+    "creator": "Catlin",
+    "title": "Block shape mini bag",
+    "pricingOption": 2,
+    "imagePath": "images/thumbnail_3.jpg",
+    "price": 15
+  },
+  {
+    "id": "content-004",
+    "creator": "Dan",
+    "title": "Tartan mini dress",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_4.jpg",
+    "price": 300
+  },
+  {
+    "id": "content-005",
+    "creator": "Emily",
+    "title": "Pink training suit",
+    "pricingOption": 2,
+    "imagePath": "images/thumbnail_5.jpg",
+    "price": 200.5
+  },
+  {
+    "id": "content-006",
+    "creator": "Felix",
+    "title": "Denim jump suit",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_6.jpg",
+    "price": 30
+  },
+  {
+    "id": "content-007",
+    "creator": "Gina",
+    "title": "Denim shirt",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_7.jpg",
+    "price": 100
+  },
+  {
+    "id": "content-008",
+    "creator": "Harry",
+    "title": "Silk shirring dress",
+    "pricingOption": 2,
+    "imagePath": "images/thumbnail_8.jpg",
+    "price": 50
+  },
+  {
+    "id": "content-009",
+    "creator": "Ikarus",
+    "title": "Beige shirt with hat",
+    "pricingOption": 2,
+    "imagePath": "images/thumbnail_9.jpg",
+    "price": 5
+  },
+  {
+    "id": "content-010",
+    "creator": "Jennifer",
+    "title": "Red leather evening dress",
+    "pricingOption": 0,
+    "imagePath": "images/thumbnail_10.jpg",
+    "price": 10.5
+  },
+  {
+    "id": "content-011",
+    "creator": "Kiara",
+    "title": "Runner pants",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_11.jpg",
+    "price": 20
+  },
+  {
+    "id": "content-012",
+    "creator": "Lonnie",
+    "title": "Futuristic garment",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_12.jpg",
+    "price": 20
+  },
+  {
+    "id": "content-013",
+    "creator": "Marie",
+    "title": "Silk dress",
+    "pricingOption": 0,
+    "imagePath": "images/thumbnail_13.jpg",
+    "price": 65
+  },
+  {
+    "id": "content-014",
+    "creator": "Nate",
+    "title": "Swimsuit",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_14.jpg",
+    "price": 100
+  },
+  {
+    "id": "content-015",
+    "creator": "Obama",
+    "title": "Simple knit",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_15.jpg",
+    "price": 10
+  },
+  {
+    "id": "content-016",
+    "creator": "Pierre",
+    "title": "Velvet blazer",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_16.jpg",
+    "price": 70
+  },
+  {
+    "id": "content-017",
+    "creator": "Quinn",
+    "title": "Red tweed jacket",
+    "pricingOption": 2,
+    "imagePath": "images/thumbnail_17.jpg",
+    "price": 1
+  },
+  {
+    "id": "content-018",
+    "creator": "Randy",
+    "title": "Violet underwares",
+    "pricingOption": 0,
+    "imagePath": "images/thumbnail_18.jpg",
+    "price": 100.5
+  },
+  {
+    "id": "content-019",
+    "creator": "Suzie",
+    "title": "Deep green wide pants",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_19.jpg",
+    "price": 90
+  },
+  {
+    "id": "content-020",
+    "creator": "Tony",
+    "title": "Floral pattern hat",
+    "pricingOption": 2,
+    "imagePath": "images/thumbnail_20.jpg",
+    "price": 100
+  },
+  {
+    "id": "content-021",
+    "creator": "Umar",
+    "title": "Cargo pants",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_21.jpg",
+    "price": 20
+  },
+  {
+    "id": "content-022",
+    "creator": "Vivian",
+    "title": "Stadium jacket",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_22.jpg",
+    "price": 45
+  },
+  {
+    "id": "content-023",
+    "creator": "Walter",
+    "title": "Open neck dress",
+    "pricingOption": 0,
+    "imagePath": "images/thumbnail_23.jpg",
+    "price": 10
+  },
+  {
+    "id": "content-024",
+    "creator": "Xavier",
+    "title": "Black leather costume",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_24.jpg",
+    "price": 13
+  },
+  {
+    "id": "content-025",
+    "creator": "Yves",
+    "title": "Pink cardigan",
+    "pricingOption": 0,
+    "imagePath": "images/thumbnail_25.jpg",
+    "price": 5
+  },
+  {
+    "id": "content-026",
+    "creator": "Zane",
+    "title": "Polo style uniform",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_26.jpg",
+    "price": 200
+  },
+  {
+    "id": "content-027",
+    "creator": "Adam",
+    "title": "Grunge look",
+    "pricingOption": 0,
+    "imagePath": "images/thumbnail_27.jpg",
+    "price": 300
+  },
+  {
+    "id": "content-028",
+    "creator": "Catlin",
+    "title": "White top",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_28.jpg",
+    "price": 80
+  },
+  {
+    "id": "content-029",
+    "creator": "Catlin",
+    "title": "White simple dress with jacket",
+    "pricingOption": 2,
+    "imagePath": "images/thumbnail_29.jpg",
+    "price": 13
+  },
+  {
+    "id": "content-030",
+    "creator": "Felix",
+    "title": "Satin dress",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_30.jpg",
+    "price": 1200.5
+  },
+  {
+    "id": "content-031",
+    "creator": "Vivian",
+    "title": "Workware jacket",
+    "pricingOption": 2,
+    "imagePath": "images/thumbnail_31.jpg",
+    "price": 450
+  },
+  {
+    "id": "content-032",
+    "creator": "Zane",
+    "title": "Denim mini dress2",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_32.jpg",
+    "price": 30
+  },
+  {
+    "id": "content-033",
+    "creator": "John",
+    "title": "Casual look",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_33.jpg",
+    "price": 10
+  },
+  {
+    "id": "content-034",
+    "creator": "Haily",
+    "title": "Yellow striped shirt",
+    "pricingOption": 0,
+    "imagePath": "images/thumbnail_34.jpg",
+    "price": 250
+  },
+  {
+    "id": "content-035",
+    "creator": "Dion",
+    "title": "Argyle pattern top",
+    "pricingOption": 0,
+    "imagePath": "images/thumbnail_35.jpg",
+    "price": 90
+  },
+  {
+    "id": "content-036",
+    "creator": "Sean",
+    "title": "Vivid orange jumpsuit",
+    "pricingOption": 0,
+    "imagePath": "images/thumbnail_36.jpg",
+    "price": 70
+  },
+  {
+    "id": "content-037",
+    "creator": "Jake",
+    "title": "Underware",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_37.jpg",
+    "price": 33
+  },
+  {
+    "id": "content-038",
+    "creator": "Molly",
+    "title": "Winter jacket",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_38.jpg",
+    "price": 10
+  },
+  {
+    "id": "content-039",
+    "creator": "MJ",
+    "title": "Double coat",
+    "pricingOption": 0,
+    "imagePath": "images/thumbnail_39.jpg",
+    "price": 1050
+  },
+  {
+    "id": "content-040",
+    "creator": "Sam",
+    "title": "Color pop dress",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_40.jpg",
+    "price": 10000
+  },
+  {
+    "id": "content-041",
+    "creator": "Obama",
+    "title": "Blue square neck dress",
+    "pricingOption": 0,
+    "imagePath": "images/thumbnail_41.jpg",
+    "price": 30
+  },
+  {
+    "id": "content-042",
+    "creator": "Pierre",
+    "title": "Green coat",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_1.jpg",
+    "price": 50
+  },
+  {
+    "id": "content-043",
+    "creator": "Quinn",
+    "title": "Anorak jacket",
+    "pricingOption": 2,
+    "imagePath": "images/thumbnail_2.jpg",
+    "price": 85
+  },
+  {
+    "id": "content-044",
+    "creator": "Randy",
+    "title": "White mini clutch",
+    "pricingOption": 2,
+    "imagePath": "images/thumbnail_3.jpg",
+    "price": 30
+  },
+  {
+    "id": "content-045",
+    "creator": "Rhonda",
+    "title": "Red check pattern dress",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_4.jpg",
+    "price": 250
+  },
+  {
+    "id": "content-046",
+    "creator": "Kiara",
+    "title": "Gymware",
+    "pricingOption": 2,
+    "imagePath": "images/thumbnail_5.jpg",
+    "price": 100
+  },
+  {
+    "id": "content-047",
+    "creator": "Xavier",
+    "title": "Denim suit",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_6.jpg",
+    "price": 35
+  },
+  {
+    "id": "content-048",
+    "creator": "Pierre",
+    "title": "Jean",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_7.jpg",
+    "price": 90
+  },
+  {
+    "id": "content-049",
+    "creator": "Wesley",
+    "title": "Thigh-high white boots",
+    "pricingOption": 0,
+    "imagePath": "images/thumbnail_8.jpg",
+    "price": 100
+  },
+  {
+    "id": "content-050",
+    "creator": "Riley",
+    "title": "Pale denim hat",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_9.jpg",
+    "price": 115
+  },
+  {
+    "id": "content-051",
+    "creator": "Joe",
+    "title": "Open neck evening garment",
+    "pricingOption": 0,
+    "imagePath": "images/thumbnail_10.jpg",
+    "price": 50
+  },
+  {
+    "id": "content-052",
+    "creator": "Adam",
+    "title": "Gray leggings",
+    "pricingOption": 1,
+    "imagePath": "images/thumbnail_11.jpg",
+    "price": 70
+  }
+]

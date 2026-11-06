@@ -1,7 +1,19 @@
 import type { Product } from '../types/product';
 
-const PRODUCTS_API_URL = 'https://closet-recruiting-api.azurewebsites.net/api/data';
+const PRODUCTS_DATA_URL = `${import.meta.env.BASE_URL}data/products.json`;
 const MAX_RETRIES = 3;
+
+/**
+ * Resolves relative image paths against the app base URL so mock assets
+ * work both under GitHub Pages project subpaths and in local dev.
+ * Absolute URLs (http/https/protocol-relative/root-relative) are kept as-is.
+ */
+function resolveImagePath(imagePath: string): string {
+    if (/^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(imagePath) || imagePath.startsWith('/')) {
+        return imagePath;
+    }
+    return `${import.meta.env.BASE_URL}${imagePath}`;
+}
 
 /**
  * Validates a product object contains all required fields.
@@ -21,7 +33,7 @@ function isValidProduct(item: unknown): item is Product {
 export async function getProducts(signal?: AbortSignal): Promise<Product[]> {
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
-            const response = await fetch(PRODUCTS_API_URL, { signal });
+            const response = await fetch(PRODUCTS_DATA_URL, { signal });
 
             if (!response.ok) {
                 // Only retry for 5xx server errors
@@ -39,13 +51,15 @@ export async function getProducts(signal?: AbortSignal): Promise<Product[]> {
             }
 
             // Filter out malformed items
-            return data.filter((item, index) => {
-                const valid = isValidProduct(item);
-                if (!valid) {
-                    console.error(`Malformed product data at index ${index}:`, item);
-                }
-                return valid;
-            });
+            return data
+                .filter((item, index) => {
+                    const valid = isValidProduct(item);
+                    if (!valid) {
+                        console.error(`Malformed product data at index ${index}:`, item);
+                    }
+                    return valid;
+                })
+                .map((item) => ({ ...item, imagePath: resolveImagePath(item.imagePath) }));
         } catch (error) {
             // fetch() throws TypeError on network failures (e.g. DNS, connection loss)
             const isNetworkError = error instanceof TypeError;
